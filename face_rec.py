@@ -81,7 +81,7 @@ class EncodingsClassifier:
         for sub in subs:
             sub_mask = subs == sub
             sub_pred = correct[sub_mask[mask], sub]
-            softmax_stats[sub] = (sub_pred.mean(), sub_pred.std())
+            softmax_stats[sub] = (sub_pred.mean(), sub_pred.std(), sub_mask.sum())
 
         self.softmax_stats = softmax_stats
 

@@ -2,17 +2,18 @@
     <head>
         <script src="/static/js/jquery.min.js"></script>
         <script src="/static/js/feed.js"></script>
+        <link rel="stylesheet" href="/static/css/style.css">
     </head>
     <body>
-        <div>
+        <div style="width: 640px;">
             <img id="tagged" height="480px" width="640px" src="/static/img/feed.png">
-            <p id="status">Upload Image</p>
+            <p align="center" id="status" style="width: inherit;">No Image Selected</p>
         </div>
-        <div>
-            <form method=post enctype=multipart/form-data id="image_upload">
-                <p><input type="file" name="image" id="image"></p>
-                <p><input type="submit" value="upload"></p>
-            </form>
+        <div class="dropdown" align="center">
+            <input  type="file" name="image" id="image" hidden>
+            <button id="upload" class="dropbtn">Upload</button>
+            <button id="webcam" class="dropbtn">Webcam</button>
+            <button id="submit" class="dropbtn">Submit</button>
         </div>
     </body>
 </html>

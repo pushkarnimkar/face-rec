@@ -41,3 +41,7 @@
 .show {
     display: block
 }
+
+.status p {
+    display: block
+}
