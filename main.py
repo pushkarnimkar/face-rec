@@ -80,13 +80,11 @@ def feed():
 
         if isinstance(pred, dict):
             image_base64 = encode_image(image, pred["box"])
-
-            pred["status"] = f"predicted subject {pred['sub']}" \
-                if "sub" in pred else "could not identify subject"
+            pred["conf"] = round(float(pred["conf"]), 6)
+            pred["status"] = f"predicted subject {pred['sub']} " \
+                             f"with confidence {pred['conf']}"
             pred["image"] = image_base64
-
             return json.dumps(pred)
-
         else:
             return json.dumps(dict(status="unexpected error"))
 

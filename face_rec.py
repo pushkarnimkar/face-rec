@@ -87,7 +87,7 @@ class EncodingsClassifier:
 
     def __conf_eval__(self, pred: np.ndarray) -> float:
         sub = np.argmax(pred)
-        prob, (mean, std) = pred[0][sub], self.softmax_stats[sub]
+        prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
         confidence = np.exp((prob - mean) / std)
         return confidence if confidence < 1 else 1
 
@@ -145,7 +145,8 @@ class FaceRecognizer:
         if conf < self.confidence_thresh or force:
             sub = None if pred is None else self.subs_lst[pred]
             name = self.store.add(image, enc, box, vid, cap_time, sub, conf)
-            return name, dict(box=box.tolist())
+            return name, dict(box=box.tolist(), sub=self.subs_lst[pred],
+                              conf=conf)
         else:
             return None, dict(box=box.tolist(), sub=self.subs_lst[pred],
                               conf=conf)
