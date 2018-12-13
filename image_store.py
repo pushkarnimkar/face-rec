@@ -16,8 +16,6 @@ class ImageStore:
     ENCS_FILE_NAME = "encs.npy"
     BBOX_FILE_NAME = "bbox.npy"
 
-    instances = {}
-
     def __init__(self, store_dir: str = os.getcwd(),
                  info: pd.DataFrame = pd.DataFrame(),
                  encs: np.ndarray = np.ndarray((0, 128), dtype=np.float64),
@@ -28,8 +26,6 @@ class ImageStore:
             f"{encs.shape}, {info.shape}"
 
         assert encs.shape[1] == 128, f"expected 128d face encoding"
-
-        assert store_dir not in self.instances, f"{store_dir} in use"
 
         if info.empty:
             info = pd.DataFrame([], columns=list(COLS_TYPE.keys()))
@@ -48,10 +44,8 @@ class ImageStore:
         if not os.path.exists(self.img_dir):
             os.mkdir(self.img_dir)
 
-        self.instances[self.store_dir] = self
-
-    def get_image(self, name: str, tag_face=False, width=2,
-                  color=(255, 0, 0), get_rgb=False) -> Tuple[np.ndarray, dict]:
+    def get_image(self, name: str, tag_face=False, width=2, color=(255, 0, 0),
+                  get_rgb=False) -> Tuple[np.ndarray, dict]:
 
         info, idx = self.info.loc[name], self.info.index.get_loc(name)
         read_img = cv2.imread(info["path"])
@@ -108,7 +102,7 @@ class ImageStore:
 
         assert self.encs.shape[1] == 128, f"expected 128d face encoding"
 
-        assert self.store_dir in self.instances, f"{store_dir} not locked"
-
-    def __del__(self):
-        del self.instances[self.store_dir]
+    def __getitem__(self, item: np.ndarray):
+        info = self.info.iloc[item]
+        encs, bbox = self.encs[item, :], self.bbox[item, :]
+        return ImageStore(self.store_dir, info, encs, bbox)

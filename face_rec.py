@@ -1,13 +1,14 @@
 from image_store import ImageStore
 
-from typing import Tuple, Union
-
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
+from keras.losses import categorical_crossentropy
 from keras.optimizers import SGD
 from keras.utils import to_categorical
+from typing import Tuple, Union
 
 import cv2
+import keras.backend as K
 import numpy as np
 import pandas as pd
 import face_recognition
@@ -15,6 +16,21 @@ import face_recognition
 import os
 import sys
 import time
+
+
+class ConfidenceLossFunction:
+    def __init__(self, budget=0.3, lmbda=0.1):
+        self.budget = K.variable(budget)
+        self.lmbda = K.variable(lmbda)
+
+    def __call__(self, pred, labels):
+        conf, pred_orig = pred[:, 0], pred[:, 1:]
+        b = K.random_binomial(conf.shape, 0.5)
+        conf = conf * b + (1 - b)
+        pred_new = pred_orig * conf + labels * (1 - conf)
+        pred_loss = categorical_crossentropy(pred_new, labels)
+        conf_loss = self.lmbda * K.log(conf)
+        return pred_loss + conf_loss
 
 
 class EncodingsClassifier:
@@ -48,8 +64,14 @@ class EncodingsClassifier:
         pass
 
     def __train_model__(self, encs: np.ndarray, subs: np.ndarray):
-        train_index = pd.Series(subs).groupby(subs)\
-            .apply(lambda g: g.iloc[:4])\
+        def train_data_maker(frame: pd.DataFrame):
+            perm = frame.iloc[np.random.permutation(frame.shape[0])]
+            if perm.shape[0] <= 8:
+                return perm.iloc[0: 4]
+            else:
+                return perm.iloc[0: int(0.5 * perm.shape[0])]
+
+        train_index = pd.Series(subs).groupby(subs).apply(train_data_maker)\
             .reset_index(level=0, drop=True).index.values
 
         train_mask, test_mask = (np.repeat(False, subs.shape[0]),
@@ -63,14 +85,15 @@ class EncodingsClassifier:
         y_test = to_categorical(subs[test_mask], num_classes=subs_count)
 
         sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
+
         self.model.compile(loss='categorical_crossentropy',
                            optimizer=sgd,
                            metrics=['accuracy'])
         self.model.fit(x_train, y_train, epochs=1000, batch_size=50)
         score = self.model.evaluate(x_test, y_test)
 
-        pred = self.model.predict(encs)
-        self.__make_conf_model__(pred, subs)
+        pred = self.model.predict(x_test)
+        self.__make_conf_model__(pred, subs[test_mask])
         print(score)
 
     def __make_conf_model__(self, pred, subs):
@@ -88,7 +111,7 @@ class EncodingsClassifier:
     def __conf_eval__(self, pred: np.ndarray) -> float:
         sub = np.argmax(pred)
         prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
-        confidence = np.exp((prob - mean) / std)
+        confidence = np.exp((prob - mean) / std) if std != 0 else 0
         return confidence if confidence < 1 else 1
 
     def predict(self, enc: np.ndarray) -> (np.ndarray, np.ndarray):
