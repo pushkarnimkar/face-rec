@@ -18,21 +18,6 @@ import sys
 import time
 
 
-class ConfidenceLossFunction:
-    def __init__(self, budget=0.3, lmbda=0.1):
-        self.budget = K.variable(budget)
-        self.lmbda = K.variable(lmbda)
-
-    def __call__(self, pred, labels):
-        conf, pred_orig = pred[:, 0], pred[:, 1:]
-        b = K.random_binomial(conf.shape, 0.5)
-        conf = conf * b + (1 - b)
-        pred_new = pred_orig * conf + labels * (1 - conf)
-        pred_loss = categorical_crossentropy(pred_new, labels)
-        conf_loss = self.lmbda * K.log(conf)
-        return pred_loss + conf_loss
-
-
 class EncodingsClassifier:
     def __init__(self, model_dir: str="", encs: np.ndarray=None,
                  subs: np.ndarray=None, force_train: bool=False):
@@ -111,12 +96,12 @@ class EncodingsClassifier:
     def __conf_eval__(self, pred: np.ndarray) -> float:
         sub = np.argmax(pred)
         prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
-        confidence = np.exp((prob - mean) / std) if std != 0 else 0
-        return confidence if confidence < 1 else 1
+        confidence = np.exp((prob - mean) / std) if std != 0 else 0.0
+        return confidence if confidence < 1 else 1.0
 
     def predict(self, enc: np.ndarray) -> (np.ndarray, np.ndarray):
         if self.is_none:
-            return None, 0, 0
+            return None, 0.0, 0.0
 
         pred = self.model.predict(enc.reshape(1, -1))
         pred_sub = np.argmax(pred, axis=1)[0]
