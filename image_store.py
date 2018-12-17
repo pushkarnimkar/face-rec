@@ -29,7 +29,7 @@ class ImageStore:
 
         if info.empty:
             info = pd.DataFrame([], columns=list(COLS_TYPE.keys()))
-            info = info.astype(COLS_TYPE)
+            info: pd.DataFrame = info.astype(COLS_TYPE)
             info.index.name = "name"
 
         self.info = info
@@ -77,7 +77,7 @@ class ImageStore:
         np.save(os.path.join(self.store_dir, self.BBOX_FILE_NAME),
                 self.bbox, allow_pickle=False)
 
-    def add(self, img: np.ndarray, enc: np.ndarray, box: tuple,
+    def add(self, img: np.ndarray, enc: np.ndarray, box: np.ndarray,
             vid: str, cap_time: int, subject: str,
             confidence: float, verified: bool=False):
 

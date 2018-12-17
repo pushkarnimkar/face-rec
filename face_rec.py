@@ -1,20 +1,18 @@
+from ask import ask_sequence
 from image_store import ImageStore
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
-from keras.losses import categorical_crossentropy
 from keras.optimizers import SGD
 from keras.utils import to_categorical
-from typing import Tuple, Union
+from typing import Tuple, Union, Iterator
 
 import cv2
-import keras.backend as K
 import numpy as np
 import pandas as pd
 import face_recognition
 
 import os
-import sys
 import time
 
 
@@ -32,7 +30,7 @@ class EncodingsClassifier:
         weights_file = os.path.join(model_dir, "weights.json")
 
         if os.path.exists(weights_file) and not force_train:
-            self.__load_model__(model_dir)
+            self.__load_model__()
         else:
             self.__train_model__(encs, subs)
 
@@ -81,7 +79,7 @@ class EncodingsClassifier:
         self.__make_conf_model__(pred, subs[test_mask])
         print(score)
 
-    def __make_conf_model__(self, pred, subs):
+    def __make_conf_model__(self, pred: np.ndarray, subs: np.ndarray):
         pred_subs = np.argmax(pred, axis=1)
         mask = pred_subs == subs
         correct, softmax_stats = pred[mask, :], {}
@@ -124,9 +122,12 @@ class FaceRecognizer:
 
         self.classifier = EncodingsClassifier()
         self.confidence_thresh = confidence_thresh
+        self.iter_ask = self._ask()
 
     @classmethod
-    def encode(cls, img: np.ndarray) -> Tuple[np.ndarray, tuple]:
+    def encode(cls, img: np.ndarray) -> \
+            Tuple[Union[np.ndarray, None], Union[np.ndarray, None]]:
+
         """Finds and encodes largest face in the image"""
         boxes = np.array(face_recognition.face_locations(img))
         if len(boxes) == 0:
@@ -170,13 +171,27 @@ class FaceRecognizer:
         if name in self.store.info.index:
             self.store.info.loc[name, cols] = (subject, 1, True)
 
-    def ask(self) -> Tuple[Union[str, None], Tuple[np.ndarray, dict]]:
-        unverified = self.store.info[~self.store.info["verified"]]
-        if unverified.shape[0] != 0:
-            name = unverified.sample(1).index[0]
-            return name, self.store.get_image(name, True)
-        else:
-            return None, (np.array([]), dict())
+    def _ask(self) -> Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
+        index = np.where(~self.store.info["verified"])[0]
+        unverified_encs = self.store.encs[index, :]
+
+        sequence = index[ask_sequence(unverified_encs)]
+        if sequence.shape[0] == 0:
+            return
+        for seq_num in sequence:
+            info = self.store.info.iloc[seq_num]
+            name = info.name
+            yield name, self.store.get_image(name, True)
+
+    def ask(self) -> Union[Tuple[str, Tuple[np.ndarray, dict]], None]:
+        asked = None
+        try:
+            asked = next(self.iter_ask)
+        except (TypeError, StopIteration):
+            self.iter_ask = self._ask()
+            asked = next(self.iter_ask)
+        finally:
+            return asked
 
     @staticmethod
     def build(train_dir: str, store_dir: str) -> "FaceRecognizer":
@@ -205,22 +220,3 @@ class FaceRecognizer:
     @property
     def subs_map(self):
         return {sub: i for i, sub in enumerate(self.subs_lst)}
-
-
-def main():
-    if os.path.exists(os.path.join(sys.argv[2], ImageStore.INFO_FILE_NAME)):
-        recognizer = FaceRecognizer(sys.argv[2])
-    else:
-        recognizer = FaceRecognizer.build(sys.argv[1], sys.argv[2], False)
-
-    img = cv2.cvtColor(cv2.imread(sys.argv[3]), cv2.COLOR_BGR2RGB)
-    img_name, pred = recognizer.feed(img, "testing", int(time.time()))
-
-    query_name, (img, info) = recognizer.ask()
-    print("predicted subject: " + pred)
-
-    recognizer.store.write()
-
-
-if __name__ == "__main__":
-    main()

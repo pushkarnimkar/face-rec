@@ -65,7 +65,7 @@ def feed():
         temp_file = io.BytesIO()
         image_file.save(temp_file)
 
-        formatted = np.fromstring(temp_file.getvalue(), dtype=np.int8)
+        formatted = np.frombuffer(temp_file.getvalue(), dtype=np.int8)
         # cv2.imdecode gives image in BGR format understood by cv2
         image = cv2.imdecode(formatted, 1)
 
@@ -98,12 +98,16 @@ def train():
 
 @app.route("/ask", methods=["GET"])
 def ask():
-    name, (image, info) = recognizer.ask()
-    if name is None:
+    tagged = recognizer.ask()
+
+    if tagged is None:
         return json.dumps(dict(status="complete"))
+    else:
+        name, (image, info) = tagged
 
     image_base64 = encode_image(image)
-    message = dict(name=name, image=image_base64, status="progress")
+    message = dict(name=name, image=image_base64, status="progress",
+                   pred=info["subject"], conf=float(info["confidence"]))
 
     return json.dumps(message)
 
