@@ -1,6 +1,6 @@
 from scipy.spatial import ConvexHull
-from sklearn.cluster import KMeans
-# from sklearn.cluster import DBSCAN
+# from sklearn.cluster import KMeans
+from sklearn.cluster import DBSCAN
 from sklearn.manifold import TSNE
 # from sklearn.decomposition import PCA
 
@@ -8,27 +8,16 @@ import numpy as np
 
 
 def cluster(encs: np.ndarray, n_clusters=8, init="k-means++") -> np.ndarray:
-    if encs.shape[0] < n_clusters:
-        n_clusters = 1
-
-    kmeans = KMeans(n_clusters=n_clusters, init=init)
-    # dbscan = DBSCAN(eps=0.4, min_samples=5)
-    return kmeans.fit_predict(encs)
+    dbscan = DBSCAN(eps=0.425, min_samples=2)
+    return dbscan.fit_predict(encs)
 
 
 def transform(encs: np.ndarray) -> np.ndarray:
     tsne = TSNE(n_components=2, init="pca", random_state=100, method="exact")
-    # pca = PCA(n_components=2)
     return tsne.fit_transform(encs)
 
 
-def ask_sequence(encs: np.ndarray, kmeans_n_clusters=8) -> np.ndarray:
-    if encs.shape[0] < kmeans_n_clusters:
-        return np.arange(0, encs.shape[0])
-
-    clusters = cluster(encs, n_clusters=kmeans_n_clusters)
-    transformed = transform(encs)
-
+def select(clusters, transformed):
     (points, weights, indices,
      nans, nans_index, selected) = ([], [], [], [], [], [])
 
@@ -58,3 +47,17 @@ def ask_sequence(encs: np.ndarray, kmeans_n_clusters=8) -> np.ndarray:
 
     weights, indices = np.concatenate(weights), np.concatenate(indices)
     return indices[weights.argsort()]
+
+
+def convex_hull_sequence(encs: np.ndarray, kmeans_n_clusters=8) -> np.ndarray:
+    if encs.shape[0] < kmeans_n_clusters:
+        return np.arange(0, encs.shape[0])
+
+    clusters, transformed = cluster(encs), transform(encs)
+    selected = select(clusters, transformed)
+    extras = set(range(encs.shape[0])).difference(selected)
+    return np.concatenate((selected, np.array(list(extras))))
+
+
+def random_sequence(encs: np.ndarray) -> np.ndarray:
+    return np.random.permutation(encs.shape[0])

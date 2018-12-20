@@ -1,4 +1,4 @@
-from ask import ask_sequence
+from ask import convex_hull_sequence
 from image_store import ImageStore
 
 from keras.models import Sequential
@@ -93,7 +93,11 @@ class EncodingsClassifier:
 
     def __conf_eval__(self, pred: np.ndarray) -> float:
         sub = np.argmax(pred)
-        prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
+        if sub in self.softmax_stats:
+            prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
+        else:
+            prob, (mean, std, count) = 0, (0, 0, 1)
+
         confidence = np.exp((prob - mean) / std) if std != 0 else 0.0
         return confidence if confidence < 1 else 1.0
 
@@ -175,7 +179,7 @@ class FaceRecognizer:
         index = np.where(~self.store.info["verified"])[0]
         unverified_encs = self.store.encs[index, :]
 
-        sequence = index[ask_sequence(unverified_encs)]
+        sequence = index[convex_hull_sequence(unverified_encs)]
         if sequence.shape[0] == 0:
             return
         for seq_num in sequence:
