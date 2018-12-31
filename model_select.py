@@ -2,6 +2,7 @@ from keras.layers import Dense, Dropout
 from keras.models import Sequential, Model
 from keras.optimizers import SGD
 from keras.utils import to_categorical
+from functools import partial
 from typing import Tuple
 
 import argparse
@@ -49,7 +50,9 @@ def eval_seq(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
              weights_tmp_file: str, method: str) -> dict:
 
     subs_count = np.unique(np.concatenate((y_train, y_test))).shape[0]
-    fractions, scores = np.arange(0.05, 1.05, 0.1), {}
+    fractions, scores = \
+        list(map(partial(round, ndigits=4), np.arange(0.0, 1.05, 0.05))), {}
+
     for fraction in fractions:
         split_point = int(fraction * seq.shape[0])
         x_train_fract, y_train_fract = (x_train[seq[:split_point], :],
@@ -63,28 +66,31 @@ def eval_seq(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
     return scores
 
 
+def auc_alc(values: np.ndarray, intv: float):
+    """Area under active learners' curve"""
+    if values.shape[0] <= 2:
+        raise ValueError("auc evaluation requires at-least two values")
+    return intv * (0.5 * (values[0] + values[-1]) + values[1:-1].sum())
+
+
 def train_test_split(x: np.ndarray, y: np.ndarray, train_fract: float) -> \
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
     count = x.shape[0]
     train_count = int(train_fract * count)
+
     perm = np.random.permutation(count)
     x_train, y_train = x[perm[:train_count]], y[perm[:train_count]]
     x_test, y_test = x[perm[train_count:]], y[perm[train_count:]]
     return x_train, y_train, x_test, y_test
 
 
-def main(store_dir: str, weights_tmp_file: str="/tmp/weights.hdf5",
-         train_fract: float=0.6) -> dict:
+def find_scores(store_dir: str, methods: dict, weights_tmp_file: str= "/tmp/weights.hdf5",
+                train_fract: float=0.6) -> dict:
 
     store, scores = ImageStore.read(store_dir), {}
     x, y = store.encs, pd.Categorical(store.info["subject"]).codes
     x_train, y_train, x_test, y_test = train_test_split(x, y, train_fract)
-
-    methods = {
-        "random": random_sequence,
-        "convex_hull": convex_hull_sequence
-    }
 
     for method, func in methods.items():
         seq = func(x_train)
@@ -98,8 +104,9 @@ def main(store_dir: str, weights_tmp_file: str="/tmp/weights.hdf5",
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("store_dir")
+    parser.add_argument("store_dir", dict(random=random_sequence,
+                                          convex_hull=convex_hull_sequence))
 
     args = parser.parse_args()
-    final_scores = main(args.store_dir)
+    final_scores = find_scores(args.store_dir)
     print(final_scores)
