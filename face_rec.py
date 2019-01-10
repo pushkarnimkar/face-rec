@@ -11,7 +11,6 @@ from typing import Tuple, Union, Iterator, Optional
 import cv2
 import numpy as np
 import pandas as pd
-import face_recognition
 
 import os
 import time
