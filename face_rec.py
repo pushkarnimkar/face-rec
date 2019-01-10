@@ -130,12 +130,12 @@ class FaceRecognizer:
 
     @classmethod
     def encode(cls, buffer: bytes) -> \
-            Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+            Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, str]]:
         """Finds and encodes largest face in the image"""
         try:
             image = transform_image(buffer)
-            _, face_box, face_encoding = extract_features(image)
-            return image, face_box, face_encoding
+            image_hash, face_box, face_encoding = extract_features(image)
+            return image, face_encoding, face_box, image_hash
         except TypeError:
             return None
 
@@ -143,7 +143,7 @@ class FaceRecognizer:
              force: bool=False) -> Tuple[Optional[str], Optional[dict]]:
 
         try:
-            image, box, enc = self.encode(buffer)
+            image, enc, box, image_hash = self.encode(buffer)
         except TypeError:
             return None, None
 
@@ -151,12 +151,13 @@ class FaceRecognizer:
 
         if conf < self.confidence_thresh or force:
             sub = None if pred is None else self.subs_lst[pred]
-            name = self.store.add(image, enc, box, vid, cap_time, sub, conf)
+            name = self.store.add(image, enc, box, vid, cap_time, sub,
+                                  conf, image_hash=image_hash)
             return name, dict(box=box.tolist(), sub=self.subs_lst[pred],
-                              conf=conf)
+                              conf=conf, image=image)
         else:
             return None, dict(box=box.tolist(), sub=self.subs_lst[pred],
-                              conf=conf)
+                              conf=conf, image=image)
 
     def train(self):
         mask = self.store.info["verified"].values

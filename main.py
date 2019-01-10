@@ -64,19 +64,14 @@ def feed():
         temp_file = io.BytesIO()
         request.files["image"].save(temp_file)
         buffer = temp_file.getvalue()
-
-        formatted = np.frombuffer(buffer, dtype=np.int8)
-        # cv2.imdecode gives image in BGR format understood by cv2
-        image = cv2.imdecode(formatted, 1)
-
-        # we convert image to RGB before feeding to recognizer
         name, pred = recognizer.feed(buffer, "intangles", int(time.time()))
 
         if name is None and pred is None:
             return json.dumps(dict(status="could not detect face"))
 
         if isinstance(pred, dict):
-            image_base64 = encode_image(image, pred["box"])
+            image_base64 = encode_image(pred["image"], pred["box"],
+                                        cvt_color=True)
             pred["conf"] = round(float(pred["conf"]), 6)
             pred["status"] = f"predicted subject {pred['sub']} " \
                              f"with confidence {pred['conf']}"
