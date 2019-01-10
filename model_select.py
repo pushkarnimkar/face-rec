@@ -3,7 +3,8 @@ from keras.models import Sequential, Model
 from keras.optimizers import SGD
 from keras.utils import to_categorical
 from functools import partial
-from typing import Tuple
+from tqdm import tqdm
+from typing import Tuple, List
 
 import argparse
 import numpy as np
@@ -11,7 +12,8 @@ import os
 import pandas as pd
 
 from image_store import ImageStore
-from ask import convex_hull_sequence, random_sequence
+from ask import (convex_hull_sequence, random_sequence,
+                 iterative_hull_sequence, dist_mat_order_sequence)
 
 
 def make_model(subs_count: int, weights_tmp_file: str) -> Model:
@@ -41,29 +43,32 @@ def train_and_evaluate(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndar
 
     model = make_model(subs_count, weights_tmp_file)
     model.fit(x_train, to_categorical(y_train, subs_count),
-              epochs=1000, batch_size=50, verbose=0)
-    return model.evaluate(x_test, to_categorical(y_test, subs_count))
+              epochs=1000, batch_size=100, verbose=0)
+    return model.evaluate(x_test, to_categorical(y_test, subs_count), verbose=0)
 
 
 def eval_seq(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray,
-             y_test: np.ndarray, seq: np.ndarray,
-             weights_tmp_file: str, method: str) -> dict:
+             y_test: np.ndarray, seq: np.ndarray, weights_tmp_file: str,
+             method: str, progress=True) -> pd.DataFrame:
+
+    np.save(f"/tmp/seq/{method}.npy", seq)
 
     subs_count = np.unique(np.concatenate((y_train, y_test))).shape[0]
-    fractions, scores = \
-        list(map(partial(round, ndigits=4), np.arange(0.0, 1.05, 0.05))), {}
+    fractions, logs = \
+        list(map(partial(round, ndigits=4), np.arange(0.0, 1.05, 0.05))), []
+    iterator = tqdm(fractions, desc=method) if progress else fractions
 
-    for fraction in fractions:
+    for fraction in iterator:
         split_point = int(fraction * seq.shape[0])
         x_train_fract, y_train_fract = (x_train[seq[:split_point], :],
                                         y_train[seq[:split_point]])
         score = train_and_evaluate(x_train_fract, y_train_fract, x_test, y_test,
                                    weights_tmp_file, subs_count)
-        scores[fraction] = score
-        log_string = f'method={method}, fraction={fraction}, ' \
-                     f'loss={score[0]}, acc={score[1]}'
-        print(log_string)
-    return scores
+        logs.append((method, fraction, score[0], score[1], split_point))
+
+    frame = pd.DataFrame(logs, columns=["method", "fraction", "loss",
+                                        "accuracy", "split_point"])
+    return frame
 
 
 def auc_alc(values: np.ndarray, intv: float):
@@ -73,20 +78,59 @@ def auc_alc(values: np.ndarray, intv: float):
     return intv * (0.5 * (values[0] + values[-1]) + values[1:-1].sum())
 
 
+def make_bare_train_split(x: np.ndarray, y: np.ndarray, min_count=3) -> \
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+
+    order = np.argsort(y)
+    x_sorted, y_sorted = x[order, :], y[order]
+    _, indices, counts = np.unique(y_sorted, return_index=True,
+                                   return_counts=True)
+
+    min_count = np.min(counts) if np.min(counts) < min_count else min_count
+    bare_train_order_index = np.ndarray((indices.shape[0], 0), dtype=np.int)
+    for inc in range(min_count):
+        bare_train_order_index = np.hstack((bare_train_order_index,
+                                            indices.reshape(-1, 1) + inc))
+
+    bare_train_index = bare_train_order_index.flatten()
+    rest_index = np.setdiff1d(np.arange(x.shape[0]), bare_train_index)
+    x_bare_train, y_bare_train = \
+        x_sorted[bare_train_index, :], y_sorted[bare_train_index]
+    x_rest, y_rest = x_sorted[rest_index, :], y_sorted[rest_index]
+
+    return x_bare_train, y_bare_train, x_rest, y_rest
+
+
+def shuffle(arrs: List[np.ndarray]) -> List[np.ndarray]:
+    if len(arrs) > 0:
+        order = np.random.permutation(arrs[0].shape[0])
+        return [np.take(arr, order, axis=0) for arr in arrs]
+    else:
+        return arrs
+
+
 def train_test_split(x: np.ndarray, y: np.ndarray, train_fract: float) -> \
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
-    count = x.shape[0]
-    train_count = int(train_fract * count)
+    x_bare_train, y_bare_train, x_rest, y_rest = make_bare_train_split(x, y)
+    train_count, bare_train_count = (int(train_fract * x.shape[0]),
+                                     x_bare_train.shape[0])
+    assert train_count >= x_bare_train.shape[0]
+    rest_train_count = train_count - x_bare_train.shape[0]
 
-    perm = np.random.permutation(count)
-    x_train, y_train = x[perm[:train_count]], y[perm[:train_count]]
-    x_test, y_test = x[perm[train_count:]], y[perm[train_count:]]
+    perm = np.random.permutation(x_rest.shape[0])
+    x_rest_train, y_rest_train = (x_rest[perm[:rest_train_count]],
+                                  y_rest[perm[:rest_train_count]])
+    x_test, y_test = x_rest[perm[rest_train_count:]], y_rest[perm[rest_train_count:]]
+
+    x_train, y_train = shuffle([np.vstack((x_rest_train, x_bare_train)),
+                                np.concatenate((y_rest_train, y_bare_train))])
     return x_train, y_train, x_test, y_test
 
 
-def find_scores(store_dir: str, methods: dict, weights_tmp_file: str= "/tmp/weights.hdf5",
-                train_fract: float=0.6) -> dict:
+def find_scores(store_dir: str, methods: dict,
+                weights_tmp_file: str= "/tmp/weights.hdf5",
+                train_fract: float=0.6, progress=True) -> dict:
 
     store, scores = ImageStore.read(store_dir), {}
     x, y = store.encs, pd.Categorical(store.info["subject"]).codes
@@ -96,17 +140,23 @@ def find_scores(store_dir: str, methods: dict, weights_tmp_file: str= "/tmp/weig
         seq = func(x_train)
         assert set(seq) == set(np.arange(x_train.shape[0]))
         scores[method] = eval_seq(x_train, y_train, x_test, y_test, seq,
-                                  weights_tmp_file, method)
+                                  weights_tmp_file, method, progress=progress)
 
     os.remove(weights_tmp_file)
-    return scores
+    return (pd.concat(list(scores.values()))
+            .set_index(["method", "fraction"], drop=True))
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("store_dir", dict(random=random_sequence,
-                                          convex_hull=convex_hull_sequence))
+    parser.add_argument("store_dir")
 
     args = parser.parse_args()
-    final_scores = find_scores(args.store_dir)
+    final_scores = find_scores(
+        args.store_dir, dict(dist_mat_order=dist_mat_order_sequence,
+                             iterative_hull=iterative_hull_sequence,
+                             random=random_sequence,
+                             convex_hull=convex_hull_sequence)
+    )
+
     print(final_scores)
