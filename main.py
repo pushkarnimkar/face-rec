@@ -61,19 +61,16 @@ def encode_image(img, box=None, cvt_color=False):
 @app.route("/feed", methods=["GET", "POST"])
 def feed():
     if request.method == "POST":
-        image_file = request.files["image"]
         temp_file = io.BytesIO()
-        image_file.save(temp_file)
+        request.files["image"].save(temp_file)
+        buffer = temp_file.getvalue()
 
-        formatted = np.frombuffer(temp_file.getvalue(), dtype=np.int8)
+        formatted = np.frombuffer(buffer, dtype=np.int8)
         # cv2.imdecode gives image in BGR format understood by cv2
         image = cv2.imdecode(formatted, 1)
 
         # we convert image to RGB before feeding to recognizer
-        name, pred = recognizer.feed(
-            cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
-            "intangles", int(time.time())
-        )
+        name, pred = recognizer.feed(buffer, "intangles", int(time.time()))
 
         if name is None and pred is None:
             return json.dumps(dict(status="could not detect face"))

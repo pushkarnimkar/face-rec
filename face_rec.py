@@ -1,11 +1,12 @@
 from ask import convex_hull_sequence
 from image_store import ImageStore
+from transform import transform_image, extract_features
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.optimizers import SGD
 from keras.utils import to_categorical
-from typing import Tuple, Union, Iterator
+from typing import Tuple, Union, Iterator, Optional
 
 import cv2
 import numpy as np
@@ -129,28 +130,22 @@ class FaceRecognizer:
         self.iter_ask = self._ask()
 
     @classmethod
-    def encode(cls, img: np.ndarray) -> \
-            Tuple[Union[np.ndarray, None], Union[np.ndarray, None]]:
-
+    def encode(cls, buffer: bytes) -> \
+            Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         """Finds and encodes largest face in the image"""
-        boxes = np.array(face_recognition.face_locations(img))
-        if len(boxes) == 0:
-            return None, None
+        try:
+            image = transform_image(buffer)
+            _, face_box, face_encoding = extract_features(image)
+            return image, face_box, face_encoding
+        except TypeError:
+            return None
 
-        delta_x, delta_y = boxes[:, 0] - boxes[:, 2], boxes[:, 1] - boxes[:, 3]
+    def feed(self, buffer: bytes, vid: str, cap_time: int,
+             force: bool=False) -> Tuple[Optional[str], Optional[dict]]:
 
-        face_idx = np.argmax(np.abs(delta_x * delta_y))
-        face_box = boxes[face_idx, :]
-
-        encoded = face_recognition.face_encodings(img, [face_box])[0]
-        return encoded, face_box
-
-    def feed(self, image: np.ndarray, vid: str, cap_time: int,
-             force: bool=False) -> Tuple[Union[str, None], Union[dict, None]]:
-
-        enc, box = self.encode(image)
-
-        if enc is None or box is None:
+        try:
+            image, box, enc = self.encode(buffer)
+        except TypeError:
             return None, None
 
         pred, conf, prob = self.classifier.predict(enc)
