@@ -46,7 +46,8 @@ def extract_features(image: np.ndarray, face_location_model: str="hog") -> \
     -------
     image_hash: MD5 hash of numpy array of image
     face_box: coordinates of bounding box of face in image (x1, y1, x2, y2)
-    face_encodings: vector encoding of face as per `face_recognition` library
+    face_encodings: vector encoding of face as per
+        `face_recognition` library
 
     """
     bbox = np.array(face_locations(image, model=face_location_model))
@@ -59,3 +60,34 @@ def extract_features(image: np.ndarray, face_location_model: str="hog") -> \
     face_encoding = face_encodings(image, [face_box])[0]
 
     return image_hash, face_box, face_encoding
+
+
+def transform(image_input: Union[str, bytes],
+              face_location_model: str="hog") -> \
+        Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, str]]:
+    """
+    Transforms image buffer into face parameters and hash of of the image.
+    If fails to find face, returns None.
+
+    Parameters
+    ----------
+    image_input: Image in base64 string or bytes format
+    face_location_model: vector encoding of face as per
+        `face_recognition` library
+
+    Returns
+    -------
+    image: numpy array of image R G B value
+    face_encodings: vector encoding of face as per
+        `face_recognition` library
+    face_box: coordinates of bounding box of face in image (x1, y1, x2, y2)
+    image_hash: MD5 hash of numpy array of image
+
+    """
+    try:
+        image = transform_image(image_input)
+        image_hash, face_box, face_encoding = \
+            extract_features(image, face_location_model=face_location_model)
+        return image, face_encoding, face_box, image_hash
+    except TypeError:
+        return None

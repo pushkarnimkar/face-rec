@@ -1,6 +1,6 @@
 from ask import convex_hull_sequence
 from image_store import ImageStore
-from transform import transform_image, extract_features
+from transform import transform
 
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
@@ -128,22 +128,11 @@ class FaceRecognizer:
         self.confidence_thresh = confidence_thresh
         self.iter_ask = self._ask()
 
-    @classmethod
-    def encode(cls, buffer: bytes) -> \
-            Optional[Tuple[np.ndarray, np.ndarray, np.ndarray, str]]:
-        """Finds and encodes largest face in the image"""
-        try:
-            image = transform_image(buffer)
-            image_hash, face_box, face_encoding = extract_features(image)
-            return image, face_encoding, face_box, image_hash
-        except TypeError:
-            return None
-
     def feed(self, buffer: bytes, vid: str, cap_time: int,
              force: bool=False) -> Tuple[Optional[str], Optional[dict]]:
 
         try:
-            image, enc, box, image_hash = self.encode(buffer)
+            image, enc, box, image_hash = transform(buffer)
         except TypeError:
             return None, None
 
