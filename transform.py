@@ -51,10 +51,10 @@ def extract_features(image: np.ndarray, face_location_model: str="hog") -> \
 
     """
     bbox = np.array(face_locations(image, model=face_location_model))
+    if bbox.shape[0] == 0:
+        return
     area = np.abs((bbox[:, 0] - bbox[:, 2]) *
                   (bbox[:, 1] - bbox[:, 3]))
-    if area.shape[0] == 0:
-        return
     image_hash = hashlib.md5(image).hexdigest()
     face_box = bbox[np.argmax(area), :]
     face_encoding = face_encodings(image, [face_box])[0]
