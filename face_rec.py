@@ -1,10 +1,9 @@
 from ask import convex_hull_sequence
 from image_store import ImageStore
 from transform import transform
+from model import make_model
 
-from keras.models import Sequential
-from keras.layers import Dense, Dropout
-from keras.optimizers import SGD
+from keras.wrappers.scikit_learn import KerasClassifier
 from keras.utils import to_categorical
 from typing import Tuple, Union, Iterator, Optional
 
@@ -25,23 +24,18 @@ class EncodingsClassifier:
             return
 
         self.is_none = False
+
         subs_count = np.unique(subs).shape[0]
-        self.__create_model__(subs_count)
+        params = dict(input_dim=encs.shape[1], subs_count=subs_count)
+        self.model = make_model(method="nn_classifier", params=params)
+
         weights_file = os.path.join(model_dir, "weights.json")
 
         if os.path.exists(weights_file) and not force_train:
             self.__load_model__()
         else:
             self.__train_model__(encs, subs)
-
         # history = model.fit(x_train, y_train, epochs=2000, batch_size=50)
-
-    def __create_model__(self, subs_count):
-        self.model = Sequential()
-        self.model.add(Dense(64, activation="relu", input_dim=128))
-        self.model.add(Dropout(0.5))
-        self.model.add(Dense(32, activation="relu"))
-        self.model.add(Dense(subs_count, activation="softmax"))
 
     def __load_model__(self):
         pass
@@ -60,24 +54,18 @@ class EncodingsClassifier:
         train_mask, test_mask = (np.repeat(False, subs.shape[0]),
                                  np.repeat(True, subs.shape[0]))
         train_mask[train_index], test_mask[train_index] = True, False
-        subs_count = np.unique(subs).shape[0]
 
-        x_train = encs[train_mask, :]
-        y_train = to_categorical(subs[train_mask], num_classes=subs_count)
-        x_test = encs[test_mask, :]
-        y_test = to_categorical(subs[test_mask], num_classes=subs_count)
+        x_train, y_train = encs[train_mask, :], subs[train_mask]
+        x_test, y_test = encs[test_mask, :], subs[test_mask]
 
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-
-        self.model.compile(loss='categorical_crossentropy',
-                           optimizer=sgd,
-                           metrics=['accuracy'])
         self.model.fit(x_train, y_train, epochs=1000, batch_size=50)
-        score = self.model.evaluate(x_test, y_test)
-
-        pred = self.model.predict(x_test)
+        pred = self.model.predict_proba(x_test)
         self.__make_conf_model__(pred, subs[test_mask])
-        print(score)
+
+        if isinstance(self.model, KerasClassifier):
+            score = self.model.model.evaluate(
+                x_test, to_categorical(y_test, num_classes=32))
+            print(score)
 
     def __make_conf_model__(self, pred: np.ndarray, subs: np.ndarray):
         pred_subs = np.argmax(pred, axis=1)
@@ -105,7 +93,7 @@ class EncodingsClassifier:
         if self.is_none:
             return None, 0.0, 0.0
 
-        pred = self.model.predict(enc.reshape(1, -1))
+        pred = self.model.predict_proba(enc.reshape(1, -1))
         pred_sub = np.argmax(pred, axis=1)[0]
         return pred_sub, self.__conf_eval__(pred), pred[0, pred_sub]
 
