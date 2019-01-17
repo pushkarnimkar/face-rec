@@ -61,8 +61,9 @@ def make_model(method: Optional[Union[str, type]]=None,
                serialized_model: Optional[Union[str, bytes]]=None,
                attrs: Optional[dict]=None) -> BaseEstimator:
     """
-    Creates an Estimator and sets parameters and attributes to the estimator.
+    Creates an Estimator and sets parameters and attributes of the estimator.
     Model can be created by:
+
     1. De-serializing serialized model string
     2. Providing model class and configurations
 
@@ -77,21 +78,21 @@ def make_model(method: Optional[Union[str, type]]=None,
 
     Parameters
     ----------
-    method: string, function, optional
+    method : string, function, optional
         Method for model creation. It can be name of a method defined in
         `METHODS` dictionary in this module or it can be a callable that
         returns instance of model upon call.
 
-    params: dict, optional
+    params : dict, optional
         Model parameters. These are set using `set_params` method of Estimator
 
-    deserializer: string, function, optional
+    deserializer : string, function, optional
         Method for de-serializing model.
 
-    serialized_model: object, optional
+    serialized_model : object, optional
         Model in serialized form
 
-    attrs: dict, optional
+    attrs : dict, optional
         Set attributes of created model, typical set of attributes include
         model parameters like regularization method, optimization method,
         model constants like penalty factor. This can also contain values
@@ -100,7 +101,7 @@ def make_model(method: Optional[Union[str, type]]=None,
 
     Returns
     -------
-    model: sklearn.base.BaseEstimator, sklearn.base.ClassifierMixin
+    model : sklearn.base.BaseEstimator, sklearn.base.ClassifierMixin
         Returns compiled classifier object
 
     Examples

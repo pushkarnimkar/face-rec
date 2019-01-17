@@ -33,21 +33,23 @@ def make_bare_train_split(x: np.ndarray, y: np.ndarray, min_count=3) -> \
     return x_bare_train, y_bare_train, x_rest, y_rest
 
 
-def train_test_split(x: np.ndarray, y: np.ndarray, train_fract: float) -> \
+def train_test_split(x: np.ndarray, y: np.ndarray, train_fract: float=0.6,
+                     train_min_count: int=3) -> \
         Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
-    x_bare_train, y_bare_train, x_rest, y_rest = make_bare_train_split(x, y)
-    train_count, bare_train_count = (int(train_fract * x.shape[0]),
-                                     x_bare_train.shape[0])
+    x_bare_train, y_bare_train, x_rest, y_rest = \
+        make_bare_train_split(x, y, min_count=train_min_count)
+    train_count, bare_train_count = (
+        int(train_fract * x.shape[0]), x_bare_train.shape[0])
+
     assert train_count >= x_bare_train.shape[0]
     rest_train_count = train_count - x_bare_train.shape[0]
 
     perm = np.random.permutation(x_rest.shape[0])
-    x_rest_train, y_rest_train = (x_rest[perm[:rest_train_count]],
-                                  y_rest[perm[:rest_train_count]])
-
-    x_test, y_test = (x_rest[perm[rest_train_count:]],
-                      y_rest[perm[rest_train_count:]])
+    x_rest_train, y_rest_train = (
+        x_rest[perm[:rest_train_count]], y_rest[perm[:rest_train_count]])
+    x_test, y_test = (
+        x_rest[perm[rest_train_count:]], y_rest[perm[rest_train_count:]])
 
     x_train, y_train = shuffle([np.vstack((x_rest_train, x_bare_train)),
                                 np.concatenate((y_rest_train, y_bare_train))])

@@ -51,9 +51,9 @@ class EncodingsClassifier:
         train_index = pd.Series(subs).groupby(subs).apply(train_data_maker)\
             .reset_index(level=0, drop=True).index.values
 
-        train_mask, test_mask = (np.repeat(False, subs.shape[0]),
-                                 np.repeat(True, subs.shape[0]))
-        train_mask[train_index], test_mask[train_index] = True, False
+        train_mask = np.repeat(False, subs.shape[0])
+        train_mask[train_index] = True
+        test_mask = ~train_mask
 
         x_train, y_train = encs[train_mask, :], subs[train_mask]
         x_test, y_test = encs[test_mask, :], subs[test_mask]
