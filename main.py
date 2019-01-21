@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect
-from device import server_acquire_image
+from device import USBCamera
 
 import base64
 import cv2
@@ -57,6 +57,9 @@ def encode_image(img, box=None, cvt_color=False):
     # expects image in BGR format understood by cv2
     image_bytes = cv2.imencode(".jpg", img)[1].tostring()
     return base64.encodebytes(image_bytes).decode("ascii")
+
+
+camera = USBCamera()
 
 
 @app.route("/feed", methods=["GET", "POST"])
@@ -128,7 +131,7 @@ def retrain():
 
 @app.route("/acquire")
 def acquire():
-    image = server_acquire_image()
+    image = camera.acquire_image()
     image_base64 = encode_image(image)
     status = "acquired image from device"
     return json.dumps(dict(image=image_base64, status=status))
