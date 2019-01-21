@@ -1,4 +1,5 @@
 from flask import Flask, request, render_template, redirect
+from device import server_acquire_image
 
 import base64
 import cv2
@@ -123,6 +124,14 @@ def list_subs():
 def retrain():
     recognizer.train()
     return redirect("/feed")
+
+
+@app.route("/acquire")
+def acquire():
+    image = server_acquire_image()
+    image_base64 = encode_image(image)
+    status = "acquired image from device"
+    return json.dumps(dict(image=image_base64, status=status))
 
 
 @app.route("/")

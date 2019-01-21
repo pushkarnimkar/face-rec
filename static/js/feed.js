@@ -1,5 +1,17 @@
 var files = {}, tmp, canvas;
 
+
+function base64_to_jpeg(image) {
+    var blobBin = atob(image.split(',')[1]);
+    var array = new Uint8Array(blobBin.length);
+    for(var i = 0; i < blobBin.length; i++) {
+        array[i] = blobBin.charCodeAt(i);
+    }
+    var file = new Blob([array], {type: "image/jpeg"});
+    return file;
+}
+
+
 $(function() {
     console.log("setting up feed.js");
 
@@ -62,22 +74,37 @@ $(function() {
 
                     canvas.getContext("2d").drawImage(video, 0, 0);
                     var image = canvas.toDataURL("image/jpeg");
-                    console.log(image);
 
+                    console.log(image);
                     var tagged = $("<img id=\"tagged\" height=\"480px\" width=\"640px\">")[0];
                     tagged.src = image;
 
-                    var blobBin = atob(image.split(',')[1]);
-                    var array = new Uint8Array(blobBin.length);
-                    for(var i = 0; i < blobBin.length; i++) {
-                        array[i] = blobBin.charCodeAt(i);
-                    }
-                    var file = new Blob([array], {type: "image/jpeg"});
-                    files["image"] = file;
+                    files["image"] = base64_to_jpeg(image);
 
                     video.srcObject.getTracks()[0].stop();
                     video.replaceWith(tagged);
                 });
             });
+    });
+
+    $("#acquire").click(function() {
+        $.ajax({
+            url: "acquire",
+            type: "GET",
+            processData: false,
+            contentType: false,
+            success: function(data, textStatus, jqXHR) {
+                var parsed = JSON.parse(data)
+                var image = "data:image/jpeg;base64, " + parsed.image;
+
+                files["image"] = base64_to_jpeg(image);
+                $("#tagged").attr("src", image);
+                $("#status").text(parsed.status);
+            },
+            error: function(jqXHR, textStatus, errorThrown) {
+                console.log(textStatus);
+                console.log(errorThrown);
+            }
+        });
     });
 });
