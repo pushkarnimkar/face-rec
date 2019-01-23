@@ -7,6 +7,7 @@ import io
 import json
 import numpy as np
 import os
+import serial
 import signal
 import sys
 import time
@@ -17,6 +18,8 @@ from image_store import ImageStore
 
 def exit_routine(_, __):
     recognizer.store.write()
+    global camera
+    camera._close()
     sys.exit(0)
 
 
@@ -131,10 +134,18 @@ def retrain():
 
 @app.route("/acquire")
 def acquire():
-    image = camera.acquire_image()
-    image_base64 = encode_image(image)
-    status = "acquired image from device"
-    return json.dumps(dict(image=image_base64, status=status))
+    global camera
+    try:
+        image = camera.acquire_image()
+        if image is None:
+            raise serial.SerialException()
+        image_base64 = encode_image(image)
+        status = "acquired image from device"
+        return json.dumps(dict(image=image_base64, status=status))
+    except serial.SerialException as se:
+        print(se, sys.stderr)
+        status = "failed to acquire image"
+        return json.dumps(dict(status=status))
 
 
 @app.route("/")

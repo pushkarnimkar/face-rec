@@ -95,10 +95,11 @@ $(function() {
             contentType: false,
             success: function(data, textStatus, jqXHR) {
                 var parsed = JSON.parse(data)
-                var image = "data:image/jpeg;base64, " + parsed.image;
-
-                files["image"] = base64_to_jpeg(image);
-                $("#tagged").attr("src", image);
+                if (parsed.hasOwnProperty("image")) {
+                    var image = "data:image/jpeg;base64, " + parsed.image;
+                    files["image"] = base64_to_jpeg(image);
+                    $("#tagged").attr("src", image);
+                }
                 $("#status").text(parsed.status);
             },
             error: function(jqXHR, textStatus, errorThrown) {

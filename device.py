@@ -1,10 +1,11 @@
-from serial import Serial
+from serial import Serial, SerialException
 from typing import Optional
 
 import cv2
 import numpy as np
 import os
 import stat
+import sys
 
 
 def check_usb_term(path: str) -> bool:
@@ -43,7 +44,7 @@ def find_camera_device() -> str:
 
 class USBCamera:
     def __init__(self, camera_path: Optional[str]=None, baudrate: int=115200,
-                 image_buffer_size: int=15000):
+                 image_buffer_size: int=15000, timeout: float=10):
         """
         Constructs USB camera object device with configurations given
 
@@ -59,25 +60,54 @@ class USBCamera:
         image_buffer_size : int, optional
             Image buffer size as set by the device
 
+        timeout : float, optional
+            Set a read timeout value. Defaults to 10 seconds
+
         """
         if camera_path is None:
             camera_path = find_camera_device()
         self.camera_path = camera_path
         self.baudrate = baudrate
+        self.timeout = timeout
         self.image_buffer_size = image_buffer_size
-        self._open()
+        self.isopen = False
+
+        try:
+            self._open()
+            self.isavailable = True
+        except SerialException as se:
+            print("Failed to open camera. Acquire method will not work")
+            print(se)
+            self.isavailable = False
+        finally:
+            self._close()
+            print("created " + repr(self), file=sys.stderr)
 
     def _open(self):
-        self.serial = Serial(baudrate=self.baudrate, port=self.camera_path)
+        self.isopen = True
+        self.serial = Serial(baudrate=self.baudrate, port=self.camera_path,
+                             timeout=self.timeout)
 
     def _close(self):
-        self.serial.close()
+        if self.isavailable and self.isopen:
+            self.serial.close()
+        self.isopen = False
 
     def close(self):
         """Close the serial connection"""
         self._close()
 
-    def acquire_image(self) -> np.ndarray:
+    def _acquire_buffer(self) -> bytes:
+        if not self.isavailable:
+            raise SerialException()
+
+        self._open()
+        self.serial.write(b"SEND")
+        buffer = self.serial.read_until(b'\xff\xd9')
+        self._close()
+        return buffer
+
+    def acquire_image(self) -> Optional[np.ndarray]:
         """
         Acquires image from USB camera.
 
@@ -87,14 +117,19 @@ class USBCamera:
             Image decoded using cv2.imdecode.
             Thus, follows BGR format instead of RGB
         """
-        self.serial.write(b"SEND")
-        read_array = [self.serial.read()
-                      for _ in range(self.image_buffer_size)]
-        image_jpeg = np.frombuffer(b"".join(read_array), np.int8)
-        image = cv2.imdecode(image_jpeg, cv2.IMREAD_COLOR)
-        return image
+        try:
+            _buffer = self._acquire_buffer()
+            index_jpeg_start = _buffer.index(b'\xff\xd8\xff\xe0')
+            buffer = _buffer[index_jpeg_start:]
+
+            image_jpeg = np.frombuffer(buffer, np.int8)
+            image = cv2.imdecode(image_jpeg, cv2.IMREAD_COLOR)
+            return image
+        except ValueError:
+            return
 
     def __del__(self):
+        print("deleting " + repr(self), file=sys.stderr)
         self._close()
 
 
