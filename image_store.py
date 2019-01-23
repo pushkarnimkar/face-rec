@@ -1,5 +1,5 @@
-from typing import Tuple
 from hashlib import md5
+from typing import Tuple, Optional
 
 import cv2
 import numpy as np
@@ -77,15 +77,20 @@ class ImageStore:
         np.save(os.path.join(self.store_dir, self.BBOX_FILE_NAME),
                 self.bbox, allow_pickle=False)
 
-    def add(self, img: np.ndarray, enc: np.ndarray, box: tuple,
-            vid: str, cap_time: int, subject: str,
-            confidence: float, verified: bool=False):
+    def add(self, image: np.ndarray, vid: str, cap_time: int,
+            enc: Optional[np.ndarray]=None, box: Optional[np.ndarray]=None,
+            subject: Optional[str]="", confidence: Optional[float]=0.0,
+            verified: bool=False) -> str:
 
-        name = md5(img).hexdigest()
+        name = md5(image).hexdigest()
+        if enc is None:
+            enc = np.repeat(np.nan, 128)
+        if box is None:
+            box = np.repeat(-1, 4)
 
         if name not in self.info.index:
             save_path = os.path.join(self.store_dir, "images", name + ".jpg")
-            cv2.imwrite(save_path, cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+            cv2.imwrite(save_path, cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
 
             self.encs = np.vstack((self.encs, enc))
             self.bbox = np.vstack((self.bbox, box))

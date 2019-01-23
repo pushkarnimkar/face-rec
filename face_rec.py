@@ -126,7 +126,7 @@ class FaceRecognizer:
         self.confidence_thresh = confidence_thresh
 
     @classmethod
-    def encode(cls, img: np.ndarray) -> Tuple[np.ndarray, tuple]:
+    def encode(cls, img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Finds and encodes largest face in the image"""
         boxes = np.array(face_recognition.face_locations(img))
         if len(boxes) == 0:
@@ -152,7 +152,7 @@ class FaceRecognizer:
 
         if conf < self.confidence_thresh or force:
             sub = None if pred is None else self.subs_lst[pred]
-            name = self.store.add(image, enc, box, vid, cap_time, sub, conf)
+            name = self.store.add(image, vid, cap_time, enc, box, sub, conf)
             return name, dict(box=box.tolist(), sub=self.subs_lst[pred],
                               conf=conf)
         else:

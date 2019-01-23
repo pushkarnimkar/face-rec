@@ -74,7 +74,7 @@ def feed():
 
         formatted = np.fromstring(temp_file.getvalue(), dtype=np.int8)
         # cv2.imdecode gives image in BGR format understood by cv2
-        image = cv2.imdecode(formatted, 1)
+        image = cv2.imdecode(formatted, cv2.IMREAD_COLOR)
 
         # we convert image to RGB before feeding to recognizer
         name, pred = recognizer.feed(

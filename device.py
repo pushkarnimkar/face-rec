@@ -65,7 +65,12 @@ class USBCamera:
 
         """
         if camera_path is None:
-            camera_path = find_camera_device()
+            try:
+                camera_path = find_camera_device()
+            except IndexError:
+                camera_path = None
+                self.isavailable = False
+
         self.camera_path = camera_path
         self.baudrate = baudrate
         self.timeout = timeout
@@ -73,8 +78,9 @@ class USBCamera:
         self.isopen = False
 
         try:
-            self._open()
-            self.isavailable = True
+            if not hasattr(self, "isavailable"):
+                self._open()
+                self.isavailable = True
         except SerialException as se:
             print("Failed to open camera. Acquire method will not work")
             print(se)

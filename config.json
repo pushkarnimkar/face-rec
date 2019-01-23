@@ -2,5 +2,6 @@
   "TRAIN_DIR": "/home/pushkar/scratchpad/face-rec/DriverAuthentication/images",
   "STORE_DIR": "/home/pushkar/scratchpad/face-rec/face-rec/store_dir",
   "UPLOAD_DIR": "/tmp/uploads",
-  "TEMPLATE_DIR": "/home/pushkar/scratchpad/face-rec/face-rec/templates"
+  "TEMPLATE_DIR": "/home/pushkar/scratchpad/face-rec/face-rec/templates",
+  "SECONDARY_STORE_DIR": "/home/pushkar/scratchpad/face-rec/secondary-store/"
 }
