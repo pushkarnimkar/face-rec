@@ -128,7 +128,7 @@ class FaceRecognizer:
     @classmethod
     def encode(cls, img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """Finds and encodes largest face in the image"""
-        boxes = np.array(face_recognition.face_locations(img))
+        boxes = np.array(face_recognition.face_locations(img, model="cnn"))
         if len(boxes) == 0:
             return None, None
 

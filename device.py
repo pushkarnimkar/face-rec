@@ -125,13 +125,15 @@ class USBCamera:
         """
         try:
             _buffer = self._acquire_buffer()
+            print("buffer length -> " + str(len(_buffer)))
             index_jpeg_start = _buffer.index(b'\xff\xd8\xff\xe0')
             buffer = _buffer[index_jpeg_start:]
 
             image_jpeg = np.frombuffer(buffer, np.int8)
             image = cv2.imdecode(image_jpeg, cv2.IMREAD_COLOR)
             return image
-        except ValueError:
+        except ValueError as ve:
+            print(ve, file=sys.stderr)
             return
 
     def __del__(self):

@@ -18,6 +18,7 @@ from image_store import ImageStore
 
 def exit_routine(_, __):
     recognizer.store.write()
+    secondary_store.write()
     global camera
     camera._close()
     sys.exit(0)
@@ -63,30 +64,35 @@ def encode_image(img, box=None, cvt_color=False):
 
 
 camera = USBCamera()
+secondary_store = ImageStore.read(config["SECONDARY_STORE_DIR"]) \
+    if "SECONDARY_STORE_DIR" in config else None
 
 
 @app.route("/feed", methods=["GET", "POST"])
 def feed():
     if request.method == "POST":
+        feed_time = int(time.time())
         image_file = request.files["image"]
         temp_file = io.BytesIO()
         image_file.save(temp_file)
 
         formatted = np.fromstring(temp_file.getvalue(), dtype=np.int8)
         # cv2.imdecode gives image in BGR format understood by cv2
-        image = cv2.imdecode(formatted, cv2.IMREAD_COLOR)
+
+        image = cv2.cvtColor(
+            cv2.imdecode(formatted, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+
+        if secondary_store is not None:
+            secondary_store.add(image, "feed", feed_time)
 
         # we convert image to RGB before feeding to recognizer
-        name, pred = recognizer.feed(
-            cv2.cvtColor(image, cv2.COLOR_BGR2RGB),
-            "intangles", int(time.time())
-        )
+        name, pred = recognizer.feed(image, "intangles", feed_time)
 
         if name is None and pred is None:
             return json.dumps(dict(status="could not detect face"))
 
         if isinstance(pred, dict):
-            image_base64 = encode_image(image, pred["box"])
+            image_base64 = encode_image(image, pred["box"], cvt_color=True)
             pred["conf"] = round(float(pred["conf"]), 6)
             pred["status"] = f"predicted subject {pred['sub']} " \
                              f"with confidence {pred['conf']}"

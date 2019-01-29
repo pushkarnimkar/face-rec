@@ -21,6 +21,8 @@ $(function() {
         });
     }
 
+    $("#next-image").click(ask_next);
+
     $("#list-subs").click(function() {
         var drop_down = $("#subsel");
         var class_list = drop_down.attr('class').split(/\s+/);
