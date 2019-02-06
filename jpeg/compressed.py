@@ -1,7 +1,8 @@
 from collections import defaultdict
+from jpeg.common import BitReader, ByteReader
 from jpeg.markers import (read_soi, read_eoi, QuantizationTable, HuffmanTable,
                           read_marker, FrameHeader, ScanHeader, ScanComponent)
-from jpeg.scan import BitReader, decode_dc, decode_ac
+from jpeg.scan import decode_dc, decode_ac
 from typing import Dict, List
 
 import numpy as np
@@ -26,12 +27,14 @@ def scan_imcu(reader: BitReader, scan_header: ScanHeader, state_dc: dict):
 
 class Compressed:
     def __init__(self, stream):
+        self._buffer = stream.read()
+        self.stream = ByteReader(self._buffer)
+
         self.quant_tbl: Dict[int, QuantizationTable] = {}
         self.dc_huff_tbl: Dict[int, HuffmanTable] = {}
         self.ac_huff_tbl: Dict[int, HuffmanTable] = {}
         self.app0 = None
         self.sof0 = None
-        self.stream = stream
         self.scan_headers: List[ScanHeader] = []
         self.mcus = {}
 
@@ -56,7 +59,7 @@ class Compressed:
                                      self.quant_tbl)
             self.scan_headers.append(scan_header)
 
-            reader = BitReader(self.stream)
+            reader = BitReader(self.stream, bs=4)
             state_dc, mcus = defaultdict(lambda: None), defaultdict(list)
             for _ in range(2400):
                 try:

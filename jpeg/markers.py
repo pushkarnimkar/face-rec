@@ -1,8 +1,6 @@
-from io import BufferedReader
 from typing import Tuple, Dict, List
-
+from jpeg.common import ByteReader
 import numpy as np
-import sys
 
 
 class JPEGParseError(Exception):
@@ -30,7 +28,7 @@ MARKERS = {
 }
 
 
-def read_marker(stream: BufferedReader) -> Tuple[str, bytes]:
+def read_marker(stream: ByteReader) -> Tuple[str, bytes]:
     try:
         while True:
             byte = stream.read(1)
@@ -47,7 +45,7 @@ def read_marker(stream: BufferedReader) -> Tuple[str, bytes]:
         raise UndefinedMarkerError(ke.args[0])
 
 
-def read_soi(stream: BufferedReader) -> None:
+def read_soi(stream: ByteReader) -> None:
     while stream.read(1) != b"\xFF":
         continue
     if stream.read(1) != b"\xD8":
@@ -55,7 +53,7 @@ def read_soi(stream: BufferedReader) -> None:
     return
 
 
-def read_eoi(stream: BufferedReader) -> None:
+def read_eoi(stream: ByteReader) -> None:
     while stream.read(1) != b"\xFF":
         continue
     if stream.read(1) != b"\xD9":

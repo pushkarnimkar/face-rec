@@ -1,31 +1,7 @@
+from jpeg.common import BitReader
 from jpeg.markers import HuffmanTable, ScanComponent
-from io import BufferedReader
 
 import numpy as np
-
-
-class BitReader:
-    def __init__(self, stream: BufferedReader):
-        self.stream: BufferedReader = stream
-        self.count: int = -1
-        self.byte: int = None
-        self.bits_read = 0
-
-    def next_bit(self):
-        """This method can be implemented in more efficient way with C"""
-        if self.count == -1:
-            byte = self.stream.read(1)
-            if byte == b"\xFF":
-                bytep1 = self.stream.read(1)
-                if bytep1 != b"\x00":
-                    raise NotImplementedError(
-                        f"DNL not implemented yet, found {bytep1}")
-            self.byte = byte[0]
-            self.count = 7
-
-        self.count, bit = self.count - 1, (self.byte >> self.count) & 1
-        self.bits_read += 1
-        return bit
 
 
 def decode(reader: BitReader, huff_tbl: HuffmanTable):
