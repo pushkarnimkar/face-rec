@@ -2,7 +2,7 @@ from collections import defaultdict
 from jpeg.markers import (read_soi, read_eoi, QuantizationTable, HuffmanTable,
                           read_marker, FrameHeader, ScanHeader, ScanComponent)
 from jpeg.scan import BitReader, decode_dc, decode_ac
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 
@@ -32,6 +32,7 @@ class Compressed:
         self.app0 = None
         self.sof0 = None
         self.stream = stream
+        self.scan_headers: List[ScanHeader] = []
         self.mcus = {}
 
     def parse(self):
@@ -51,7 +52,9 @@ class Compressed:
         marker, content = read_marker(self.stream)
         if marker == "SOS":
             scan_header = ScanHeader(content, self.sof0.components,
-                                     self.ac_huff_tbl, self.dc_huff_tbl)
+                                     self.ac_huff_tbl, self.dc_huff_tbl,
+                                     self.quant_tbl)
+            self.scan_headers.append(scan_header)
 
             reader = BitReader(self.stream)
             state_dc, mcus = defaultdict(lambda: None), defaultdict(list)

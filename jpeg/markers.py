@@ -166,25 +166,29 @@ class ScanComponent:
     def __init__(self, bs: bytes,
                  components: Dict[int, Component],
                  ac_huff_tbl: Dict[int, HuffmanTable],
-                 dc_huff_tbl: Dict[int, HuffmanTable]):
+                 dc_huff_tbl: Dict[int, HuffmanTable],
+                 quant_tbl: Dict[int, QuantizationTable]):
 
-        self.component_id = components[bs[0]].component_id
+        self._component = components[bs[0]]
+        self.component_id = self._component.component_id
         td, ta = parse_byte_params(bs[1])
         self.dc_huff_tbl = dc_huff_tbl[td]
         self.ac_huff_tbl = ac_huff_tbl[ta]
+        self.quant_tbl = quant_tbl[self._component.quant_tbl]
 
 
 class ScanHeader:
     def __init__(self, bs: bytes,
                  components: Dict[int, Component],
                  ac_huff_tbl: Dict[int, HuffmanTable],
-                 dc_huff_tbl: Dict[int, HuffmanTable]):
+                 dc_huff_tbl: Dict[int, HuffmanTable],
+                 quant_tbl: Dict[int, QuantizationTable]):
 
         ns, rest = bs[0], bs[1:]
         self.components: Dict[int, ScanComponent] = {}
         for _ in range(ns):
             component = ScanComponent(
-                rest[:2], components, ac_huff_tbl, dc_huff_tbl)
+                rest[:2], components, ac_huff_tbl, dc_huff_tbl, quant_tbl)
             self.components[component.component_id], rest = component, rest[2:]
 
         self.ss, self.se = rest[0], rest[1]
