@@ -1,15 +1,13 @@
 from argparse import ArgumentParser
 from jpeg.compressed import Compressed
-from jpeg.methods import decompress_mcus
 from matplotlib import pyplot as plt
 
 
 def main(stream):
     compressed = Compressed(stream)
     compressed.parse()
-    quant_tbl = compressed.scan_headers[0].components[1].quant_tbl
-    buffer = decompress_mcus(compressed.mcus[1], 0, 0, 60, 80, quant_tbl)
-    plt.imshow(buffer)
+    buffer = compressed.decompress_region(0, 0, 60, 80)
+    plt.imshow(buffer, cmap="gray")
     plt.show()
     return
 
