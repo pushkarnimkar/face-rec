@@ -32,7 +32,7 @@ def _scan_imcu(reader: BitReader, scan_header: ScanHeader, state_dc: list):
 
 def _decompress_comp(mcu: np.ndarray, quant_tbl: QuantizationTable):
     coefs = mcu[quant_tbl.order] * quant_tbl.table
-    return idctn(coefs)
+    return idctn(coefs, norm="ortho")
 
 
 def _decompress_mcu(mcu: Union[np.ndarray,

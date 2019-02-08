@@ -64,7 +64,8 @@ def decode_ac(reader: BitReader, scan_component: ScanComponent):
     rrrr, ssss = _decode_ac(reader, tbl)
     while k != 63:
         if ssss != 0:
-            zz[k], k = _decode_zz(reader, ssss), k + rrrr
+            k += rrrr
+            zz[k] = _decode_zz(reader, ssss)
         elif ssss == 0 and rrrr == 15:
             k = k + 16
         elif ssss == 0 and rrrr == 0:
