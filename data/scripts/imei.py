@@ -2,7 +2,7 @@ from matplotlib import dates as mdate
 from matplotlib import pyplot as plt
 from matplotlib.ticker import MaxNLocator
 from typing import Dict, List, Tuple, Optional
-from data.scripts.utils import extract_from_two
+from data.scripts.utils import extract_from_two, read_vehicle_frame
 
 import aiofiles
 import aiohttp
@@ -192,27 +192,25 @@ class VehicleMapper:
             pass
 
     async def get_vehicle(self, queries: pd.DataFrame):
-        _idevice_mapping = \
-            await self.imei_mapper.get_idevice(queries["imei"].unique())
+        _imeis = queries.index.get_level_values(0)
+        _idevice_mapping = await self.imei_mapper.get_idevice(_imeis.unique())
         idevice_mapping = \
             {imei: _idevice[0] for imei, _idevice in _idevice_mapping.items()}
         created_mapping = \
             {imei: _idevice[1] for imei, _idevice in _idevice_mapping.items()}
-        queries["idevice"] = queries["imei"].map(idevice_mapping)
-        queries["created"] = queries["imei"].map(created_mapping)
-        queries["vehicle"], queries["plate"], queries["account"] = \
-            None, None, None
+        queries["idevice"], queries["created"] = \
+            _imeis.map(idevice_mapping), _imeis.map(created_mapping)
 
         _unknowns = []
-        iterator = queries[["epoch", "idevice", "created"]].iterrows()
-        for idx, (epoch, idevice, created) in iterator:
+        iterator = queries[["idevice", "created"]].iterrows()
+        for (imei, epoch), (idevice, created) in iterator:
             try:
-                queries.loc[idx, ["vehicle", "plate", "account"]] = \
+                queries.loc[(imei, epoch), ["vehicle", "plate", "account"]] = \
                     self.idevice_mapping[idevice].loc[epoch]
             except KeyError:
-                _unknowns.append((idx, idevice, epoch, created))
+                _unknowns.append(((imei, epoch), idevice, created))
         else:
-            _columns = ["idx", "idevice", "epoch", "created"]
+            _columns = ["idx", "idevice", "created"]
             unknowns = pd.DataFrame(_unknowns, columns=_columns)
             _created = unknowns.groupby("idevice")\
                 .apply(lambda x: x["created"].unique()[0]).to_dict()
@@ -236,9 +234,9 @@ class VehicleMapper:
                         row = self.CSV_ROW_TEMPL.format(**formatter)
                         await out.write(row)
 
-            for _, (idx, idevice, epoch, __) in unknowns.iterrows():
+            for _, ((imei, epoch), idevice, __) in unknowns.iterrows():
                 try:
-                    queries.loc[idx, ["vehicle", "plate", "account"]] = \
+                    queries.loc[(imei, epoch), ["vehicle", "plate", "account"]] = \
                         self.idevice_mapping[idevice].loc[epoch]
                 except KeyError:
                     continue
@@ -259,17 +257,33 @@ class VehicleMapper:
 
 def make_query_frame(live_dir: str):
     basename, join, listdir = os.path.basename, os.path.join, os.listdir
-    image_dir, collection = join(live_dir, "images"), []
+
+    image_dir, paths = join(live_dir, "images"), []
     dirs = map(lambda d: join(image_dir, d), listdir(image_dir))
     imeis = filter(lambda dname: basename(dname).isnumeric(), dirs)
+    _index, queries = [], pd.DataFrame(columns=[
+        "file_name", "idevice", "created", "vehicle", "plate", "account"])
 
-    for imei in imeis:
-        epochs = filter(lambda _: _.endswith(".jpeg"),
-                        listdir(join(imei, "collected")))
+    try:
+        vehicles = read_vehicle_frame(live_dir)
+    except FileNotFoundError:
+        vehicles = None
+
+    for _imei in imeis:
+        files = listdir(join(_imei, "collected"))
+        epochs = filter(lambda _: _.endswith(".jpeg"), files)
         for epoch in map(lambda ts: int(ts.split(".")[0]), epochs):
-            collection.append((basename(imei), epoch,
-                               join(imei, "collected", f"{epoch}.jpeg")))
-    return pd.DataFrame(collection, columns=["imei", "epoch", "file_name"])
+            imei = basename(_imei)
+            if vehicles is not None:
+                if (imei, epoch) in vehicles.index:
+                    continue
+            _index.append((imei, epoch))
+            paths.append(join(_imei, "collected", f"{epoch}.jpeg"))
+
+    index = pd.MultiIndex.from_tuples(_index, names=["imei", "epoch"])
+    queries["file_name"] = paths
+    queries.index = index
+    return queries, vehicles
 
 
 def plot_attachments(queries: pd.DataFrame):
@@ -279,7 +293,8 @@ def plot_attachments(queries: pd.DataFrame):
 
     fig, ax = plt.subplots()
     for idx, (vehicle, group) in enumerate(queries.groupby("vehicle")):
-        epoch = mdate.epoch2num(group["epoch"].values // 1000)
+        _epoch = group.index.get_level_values(1)
+        epoch = mdate.epoch2num(_epoch // 1000)
         value = np.ones_like(epoch) * (idx + 1)
         ax.plot(epoch, value, 'o', ms=2,
                 label=plates[vehicle] if vehicle in plates else vehicle)
@@ -296,17 +311,26 @@ def plot_attachments(queries: pd.DataFrame):
 async def load_imei_logs(live_dir: str, imeis: Optional[List[str]]=[],
                          start: Optional[int]=None, end: Optional[int]=None,
                          silent: Optional[bool]=False):
-    queries = make_query_frame(live_dir)
+    _queries, vehicles = make_query_frame(live_dir)
     if len(imeis) != 0:
-        queries = queries[np.isin(queries["imei"], imeis)]
+        _queries = _queries.loc[imeis]
     if start > 0:
-        queries = queries[queries["epoch"] >= start]
+        times = _queries.index.get_level_values(1)
+        _queries = _queries[times >= start]
     if end > 0:
-        queries = queries[queries["epoch"] < end]
+        times = _queries.index.get_level_values(1)
+        _queries = _queries[times < end]
     vehicle_mapper = await VehicleMapper.create(live_dir)
-    queries = await vehicle_mapper.get_vehicle(queries)
-    queries = queries.sort_values("epoch")
-    queries.to_csv(os.path.join(live_dir, "vehicles.csv"), index=False)
+    _queries = await vehicle_mapper.get_vehicle(_queries)
+
+    if vehicles is not None:
+        queries = pd.concat((_queries, vehicles), sort=True)
+    else:
+        queries = _queries
+
+    queries.sort_values("epoch", inplace=True)
+    queries.to_csv(os.path.join(live_dir, "vehicles.csv"))
+
     if not silent:
         plot_attachments(queries)
 

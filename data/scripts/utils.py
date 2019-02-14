@@ -1,3 +1,4 @@
+import numpy as np
 import os
 import pandas as pd
 
@@ -11,5 +12,8 @@ def extract_from_two(dict1, dict2, key):
 
 
 def read_vehicle_frame(live_dir: str):
-    _frame = pd.read_csv(os.path.join(live_dir, "vehicles.csv"))
-    return
+    _dtype = dict(imei=str, vehicle=str, plate=str, account=str)
+    _frame = pd.read_csv(os.path.join(live_dir, "vehicles.csv"), dtype=_dtype)
+    frame = _frame[np.setdiff1d(_frame.columns, ["imei", "epoch"])]
+    frame.index = pd.MultiIndex.from_arrays([_frame["imei"], _frame["epoch"]])
+    return frame
