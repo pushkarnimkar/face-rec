@@ -17,3 +17,4 @@ def read_vehicle_frame(live_dir: str):
     frame = _frame[np.setdiff1d(_frame.columns, ["imei", "epoch"])]
     frame.index = pd.MultiIndex.from_arrays([_frame["imei"], _frame["epoch"]])
     return frame
+
