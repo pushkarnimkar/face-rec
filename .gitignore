@@ -4,3 +4,4 @@ __pycache__/
 store_dir/
 notebooks/
 var/
+tmp/
