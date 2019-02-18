@@ -49,6 +49,28 @@ def _decompress_mcu(mcu: Union[np.ndarray,
                      for mcu, comp_id in zip(mcu, (1, 2, 3)))
 
 
+def _down_sample(block: np.ndarray, ratio: int, method: str = "mean",
+                 mcu_side: int = 8):
+    _height, _width = mcu_side // ratio, mcu_side // ratio
+    buffer = np.zeros((_width, _height)).astype(np.uint8)
+    if callable(method):
+        down_sampler = method
+    elif method == "mean":
+        down_sampler = np.mean
+    elif method == "median":
+        down_sampler = np.median
+    elif method == "max":
+        down_sampler = np.max
+    else:
+        raise ValueError()
+    for iv in range(_height):
+        for ih in range(_width):
+            _hs = slice(ih * ratio, (ih + 1) * ratio)
+            _vs = slice(iv * ratio, (iv + 1) * ratio)
+            buffer[iv, ih] = down_sampler(block[_vs, _hs])
+    return buffer
+
+
 class Compressed:
     def __init__(self, stream):
         self._buffer = stream.read()
@@ -59,7 +81,6 @@ class Compressed:
         self.app0 = None
         self.sof0 = None
         self.scan_headers: List[ScanHeader] = []
-        self.mcus = {}
         self.imcus = []
         self.parse_success = False
 
@@ -82,26 +103,19 @@ class Compressed:
 
         marker, content = read_marker(self.stream)
         if marker == "SOS":
-            scan_header = ScanHeader(content, self.sof0.components,
-                                     self.ac_huff_tbl, self.dc_huff_tbl,
-                                     self.quant_tbl)
+            scan_header = ScanHeader(content, self.sof0, self.ac_huff_tbl,
+                                     self.dc_huff_tbl, self.quant_tbl)
             self.scan_headers.append(scan_header)
             reader = BitReader(self.stream, bs=4)
             state_dc, mcus = [0, 0, 0, 0], defaultdict(list)
-            for _ in range(2400):
+            for _ in range((self.sof0.x // 8 // self.sof0.imcu_width) *
+                           (self.sof0.y // 8 // self.sof0.imcu_height)):
                 try:
                     self.imcus.append(reader.get_pos() + tuple(state_dc))
-                    blocks = _scan_imcu(reader, scan_header, state_dc)
-                    if blocks is None:
+                    if _scan_imcu(reader, scan_header, state_dc) is None:
                         break
-                    m11, m12, m20, m30 = blocks
-                    mcus[1].extend((m11, m12))
-                    mcus[2].append(m20)
-                    mcus[3].append(m30)
                 except Exception as exc:
                     raise exc
-                finally:
-                    self.mcus = dict(mcus)
             else:
                 read_eoi(self.stream)
                 self.parse_success = True
@@ -150,4 +164,17 @@ class Compressed:
         for mcux, mcuy in product(range(width), range(height)):
             mcu = self.read_mcu(offset_x + mcux, offset_y + mcuy, comp)
             buffer[mcuy * 8: (mcuy + 1) * 8, mcux * 8: (mcux + 1) * 8] = mcu
+        return (buffer + 128).clip(0, 255).astype(np.uint8)
+
+    def down_sample(self, ratio: int=4, mcu_side: int=8):
+        dims = (self.sof0.y // ratio, self.sof0.x // ratio)
+        buffer = np.zeros(dims).astype(np.uint8)
+        _height, _width = self.sof0.y // mcu_side, self.sof0.x // mcu_side
+        for iv in range(_height):
+            for ih in range(_width):
+                block = self.decompress_region(ih, iv, 1, 1)
+                _hs = slice(ih * mcu_side // ratio, (ih + 1) * mcu_side // ratio)
+                _vs = slice(iv * mcu_side // ratio, (iv + 1) * mcu_side // ratio)
+                buffer[_vs, _hs] = _down_sample(block, ratio, method="mean")
         return buffer
+
