@@ -1,7 +1,7 @@
-from hashlib import md5
 from typing import Tuple, Optional
 
 import cv2
+import hashlib
 import numpy as np
 import os
 import pandas as pd
@@ -29,7 +29,7 @@ class ImageStore:
 
         if info.empty:
             info = pd.DataFrame([], columns=list(COLS_TYPE.keys()))
-            info = info.astype(COLS_TYPE)
+            info: pd.DataFrame = info.astype(COLS_TYPE)
             info.index.name = "name"
 
         self.info = info
@@ -77,16 +77,12 @@ class ImageStore:
         np.save(os.path.join(self.store_dir, self.BBOX_FILE_NAME),
                 self.bbox, allow_pickle=False)
 
-    def add(self, image: np.ndarray, vid: str, cap_time: int,
-            enc: Optional[np.ndarray]=None, box: Optional[np.ndarray]=None,
-            subject: Optional[str]="", confidence: Optional[float]=0.0,
-            verified: bool=False) -> str:
+    def add(self, image: np.ndarray, enc: np.ndarray, box: np.ndarray,
+            vid: str, cap_time: int, subject: str, confidence: float,
+            verified: bool=False, image_hash: Optional[str]=None):
 
-        name = md5(image).hexdigest()
-        if enc is None:
-            enc = np.repeat(np.nan, 128)
-        if box is None:
-            box = np.repeat(-1, 4)
+        name = image_hash if image_hash is not None \
+            else hashlib.md5(image).hexdigest()
 
         if name not in self.info.index:
             save_path = os.path.join(self.store_dir, "images", name + ".jpg")

@@ -1,20 +1,15 @@
+from ask import convex_hull_sequence
 from image_store import ImageStore
-
-from keras.models import Sequential
-from keras.layers import Dense, Dropout
-from keras.losses import categorical_crossentropy
-from keras.optimizers import SGD
-from keras.utils import to_categorical
-from typing import Tuple, Union
+from transform import transform
+from model import make_model
+from sklearn.metrics import accuracy_score
+from typing import Tuple, Union, Iterator, Optional
 
 import cv2
-import keras.backend as K
 import numpy as np
 import pandas as pd
-import face_recognition
 
 import os
-import sys
 import time
 
 
@@ -28,22 +23,14 @@ class EncodingsClassifier:
 
         self.is_none = False
         subs_count = np.unique(subs).shape[0]
-        self.__create_model__(subs_count)
+        params = dict(input_dim=encs.shape[1], subs_count=subs_count)
+        self.model = make_model(method="nn_classifier", params=params)
         weights_file = os.path.join(model_dir, "weights.json")
 
         if os.path.exists(weights_file) and not force_train:
-            self.__load_model__(model_dir)
+            self.__load_model__()
         else:
             self.__train_model__(encs, subs)
-
-        # history = model.fit(x_train, y_train, epochs=2000, batch_size=50)
-
-    def __create_model__(self, subs_count):
-        self.model = Sequential()
-        self.model.add(Dense(64, activation="relu", input_dim=128))
-        self.model.add(Dropout(0.5))
-        self.model.add(Dense(32, activation="relu"))
-        self.model.add(Dense(subs_count, activation="softmax"))
 
     def __load_model__(self):
         pass
@@ -56,32 +43,24 @@ class EncodingsClassifier:
             else:
                 return perm.iloc[0: int(0.5 * perm.shape[0])]
 
-        train_index = pd.Series(subs).groupby(subs).apply(train_data_maker)\
+        train_index = pd.Series(subs).groupby(subs).apply(train_data_maker) \
             .reset_index(level=0, drop=True).index.values
 
-        train_mask, test_mask = (np.repeat(False, subs.shape[0]),
-                                 np.repeat(True, subs.shape[0]))
-        train_mask[train_index], test_mask[train_index] = True, False
-        subs_count = np.unique(subs).shape[0]
+        train_mask = np.repeat(False, subs.shape[0])
+        train_mask[train_index] = True
+        test_mask = ~train_mask
 
-        x_train = encs[train_mask, :]
-        y_train = to_categorical(subs[train_mask], num_classes=subs_count)
-        x_test = encs[test_mask, :]
-        y_test = to_categorical(subs[test_mask], num_classes=subs_count)
+        x_train, y_train = encs[train_mask, :], subs[train_mask]
+        x_test, y_test = encs[test_mask, :], subs[test_mask]
 
-        sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-
-        self.model.compile(loss='categorical_crossentropy',
-                           optimizer=sgd,
-                           metrics=['accuracy'])
         self.model.fit(x_train, y_train, epochs=1000, batch_size=50)
-        score = self.model.evaluate(x_test, y_test)
-
-        pred = self.model.predict(x_test)
+        pred = self.model.predict_proba(x_test)
         self.__make_conf_model__(pred, subs[test_mask])
-        print(score)
 
-    def __make_conf_model__(self, pred, subs):
+        test_score = accuracy_score(np.argmax(pred, axis=1), y_test)
+        print(f"test set accuracy: {test_score}")
+
+    def __make_conf_model__(self, pred: np.ndarray, subs: np.ndarray):
         pred_subs = np.argmax(pred, axis=1)
         mask = pred_subs == subs
         correct, softmax_stats = pred[mask, :], {}
@@ -89,13 +68,18 @@ class EncodingsClassifier:
         for sub in subs:
             sub_mask = subs == sub
             sub_pred = correct[sub_mask[mask], sub]
-            softmax_stats[sub] = (sub_pred.mean(), sub_pred.std(), sub_mask.sum())
+            softmax_stats[sub] = \
+                (sub_pred.mean(), sub_pred.std(), sub_mask.sum())
 
         self.softmax_stats = softmax_stats
 
     def __conf_eval__(self, pred: np.ndarray) -> float:
         sub = np.argmax(pred)
-        prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
+        if sub in self.softmax_stats:
+            prob, (mean, std, count) = pred[0][sub], self.softmax_stats[sub]
+        else:
+            prob, (mean, std, count) = 0, (0, 0, 1)
+
         confidence = np.exp((prob - mean) / std) if std != 0 else 0.0
         return confidence if confidence < 1 else 1.0
 
@@ -103,7 +87,7 @@ class EncodingsClassifier:
         if self.is_none:
             return None, 0.0, 0.0
 
-        pred = self.model.predict(enc.reshape(1, -1))
+        pred = self.model.predict_proba(enc.reshape(1, -1))
         pred_sub = np.argmax(pred, axis=1)[0]
         return pred_sub, self.__conf_eval__(pred), pred[0, pred_sub]
 
@@ -124,40 +108,28 @@ class FaceRecognizer:
 
         self.classifier = EncodingsClassifier()
         self.confidence_thresh = confidence_thresh
+        self.iter_ask = self._ask()
 
-    @classmethod
-    def encode(cls, img: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Finds and encodes largest face in the image"""
-        boxes = np.array(face_recognition.face_locations(img, model="cnn"))
-        if len(boxes) == 0:
-            return None, None
+    def feed(self, buffer: bytes, vid: str, cap_time: int,
+             force: bool=False) -> Tuple[Optional[str], Optional[dict]]:
 
-        delta_x, delta_y = boxes[:, 0] - boxes[:, 2], boxes[:, 1] - boxes[:, 3]
-
-        face_idx = np.argmax(np.abs(delta_x * delta_y))
-        face_box = boxes[face_idx, :]
-
-        encoded = face_recognition.face_encodings(img, [face_box])[0]
-        return encoded, face_box
-
-    def feed(self, image: np.ndarray, vid: str, cap_time: int,
-             force: bool=False) -> Tuple[Union[str, None], Union[dict, None]]:
-
-        enc, box = self.encode(image)
-
-        if enc is None or box is None:
+        try:
+            image, enc, box, image_hash = \
+                transform(buffer, face_location_model="cnn")
+        except TypeError:
             return None, None
 
         pred, conf, prob = self.classifier.predict(enc)
 
         if conf < self.confidence_thresh or force:
             sub = None if pred is None else self.subs_lst[pred]
-            name = self.store.add(image, vid, cap_time, enc, box, sub, conf)
+            name = self.store.add(image, enc, box, vid, cap_time, sub,
+                                  conf, image_hash=image_hash)
             return name, dict(box=box.tolist(), sub=self.subs_lst[pred],
-                              conf=conf)
+                              conf=conf, image=image)
         else:
             return None, dict(box=box.tolist(), sub=self.subs_lst[pred],
-                              conf=conf)
+                              conf=conf, image=image)
 
     def train(self):
         mask = self.store.info["verified"].values
@@ -170,13 +142,27 @@ class FaceRecognizer:
         if name in self.store.info.index:
             self.store.info.loc[name, cols] = (subject, 1, True)
 
-    def ask(self) -> Tuple[Union[str, None], Tuple[np.ndarray, dict]]:
-        unverified = self.store.info[~self.store.info["verified"]]
-        if unverified.shape[0] != 0:
-            name = unverified.sample(1).index[0]
-            return name, self.store.get_image(name, True)
-        else:
-            return None, (np.array([]), dict())
+    def _ask(self) -> Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
+        index = np.where(~self.store.info["verified"])[0]
+        unverified_encs = self.store.encs[index, :]
+        sequence = index[convex_hull_sequence(unverified_encs)]
+
+        if sequence.shape[0] == 0:
+            return
+        for seq_num in sequence:
+            info = self.store.info.iloc[seq_num]
+            name = info.name
+            yield name, self.store.get_image(name, True)
+
+    def ask(self) -> Union[Tuple[str, Tuple[np.ndarray, dict]], None]:
+        asked = None
+        try:
+            asked = next(self.iter_ask)
+        except (TypeError, StopIteration):
+            self.iter_ask = self._ask()
+            asked = next(self.iter_ask)
+        finally:
+            return asked
 
     @staticmethod
     def build(train_dir: str, store_dir: str) -> "FaceRecognizer":
@@ -205,22 +191,3 @@ class FaceRecognizer:
     @property
     def subs_map(self):
         return {sub: i for i, sub in enumerate(self.subs_lst)}
-
-
-def main():
-    if os.path.exists(os.path.join(sys.argv[2], ImageStore.INFO_FILE_NAME)):
-        recognizer = FaceRecognizer(sys.argv[2])
-    else:
-        recognizer = FaceRecognizer.build(sys.argv[1], sys.argv[2], False)
-
-    img = cv2.cvtColor(cv2.imread(sys.argv[3]), cv2.COLOR_BGR2RGB)
-    img_name, pred = recognizer.feed(img, "testing", int(time.time()))
-
-    query_name, (img, info) = recognizer.ask()
-    print("predicted subject: " + pred)
-
-    recognizer.store.write()
-
-
-if __name__ == "__main__":
-    main()

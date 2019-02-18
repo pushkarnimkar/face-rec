@@ -5,7 +5,6 @@ import base64
 import cv2
 import io
 import json
-import numpy as np
 import os
 import serial
 import signal
@@ -71,28 +70,17 @@ secondary_store = ImageStore.read(config["SECONDARY_STORE_DIR"]) \
 @app.route("/feed", methods=["GET", "POST"])
 def feed():
     if request.method == "POST":
-        feed_time = int(time.time())
-        image_file = request.files["image"]
         temp_file = io.BytesIO()
-        image_file.save(temp_file)
-
-        formatted = np.fromstring(temp_file.getvalue(), dtype=np.int8)
-        # cv2.imdecode gives image in BGR format understood by cv2
-
-        image = cv2.cvtColor(
-            cv2.imdecode(formatted, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
-
-        if secondary_store is not None:
-            secondary_store.add(image, "feed", feed_time)
-
-        # we convert image to RGB before feeding to recognizer
-        name, pred = recognizer.feed(image, "intangles", feed_time)
+        request.files["image"].save(temp_file)
+        buffer = temp_file.getvalue()
+        name, pred = recognizer.feed(buffer, "intangles", int(time.time()))
 
         if name is None and pred is None:
             return json.dumps(dict(status="could not detect face"))
 
         if isinstance(pred, dict):
-            image_base64 = encode_image(image, pred["box"], cvt_color=True)
+            image_base64 = encode_image(pred["image"], pred["box"],
+                                        cvt_color=True)
             pred["conf"] = round(float(pred["conf"]), 6)
             pred["status"] = f"predicted subject {pred['sub']} " \
                              f"with confidence {pred['conf']}"
@@ -111,12 +99,16 @@ def train():
 
 @app.route("/ask", methods=["GET"])
 def ask():
-    name, (image, info) = recognizer.ask()
-    if name is None:
+    tagged = recognizer.ask()
+
+    if tagged is None:
         return json.dumps(dict(status="complete"))
+    else:
+        name, (image, info) = tagged
 
     image_base64 = encode_image(image)
-    message = dict(name=name, image=image_base64, status="progress")
+    message = dict(name=name, image=image_base64, status="progress",
+                   pred=info["subject"], conf=float(info["confidence"]))
 
     return json.dumps(message)
 
