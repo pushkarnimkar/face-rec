@@ -142,17 +142,25 @@ class FaceRecognizer:
         if name in self.store.info.index:
             self.store.info.loc[name, cols] = (subject, 1, True)
 
-    def _ask(self) -> Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
+    def _ask(self, method="input_order") -> Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
         index = np.where(~self.store.info["verified"])[0]
-        unverified_encs = self.store.encs[index, :]
-        sequence = index[convex_hull_sequence(unverified_encs)]
+
+        if method == "input_order":
+            sequence = index
+        else:
+            unverified_encs = self.store.encs[index, :]
+            if callable(method):
+                sequence = index[method(unverified_encs)]
+            elif method == "convex_hull":
+                sequence = index[convex_hull_sequence(unverified_encs)]
+            else:
+                raise ValueError("method not understood")
 
         if sequence.shape[0] == 0:
             return
         for seq_num in sequence:
             info = self.store.info.iloc[seq_num]
-            name = info.name
-            yield name, self.store.get_image(name, True)
+            yield info.name, self.store.get_image(info.name, True)
 
     def ask(self) -> Union[Tuple[str, Tuple[np.ndarray, dict]], None]:
         asked = None
