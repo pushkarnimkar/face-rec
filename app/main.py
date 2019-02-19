@@ -1,5 +1,5 @@
 from flask import Flask, request, render_template, redirect
-from device import USBCamera
+from app.device import USBCamera
 
 import base64
 import cv2
@@ -11,8 +11,8 @@ import signal
 import sys
 import time
 
-from face_rec import FaceRecognizer
-from image_store import ImageStore
+from app.face_rec import FaceRecognizer
+from app.image_store import ImageStore
 
 
 def exit_routine(_, __):
@@ -149,3 +149,8 @@ def acquire():
 @app.route("/")
 def hello_world():
     return redirect("/feed")
+
+
+@app.route("/feed-again")
+def feed_again():
+    recognizer.feed_again()

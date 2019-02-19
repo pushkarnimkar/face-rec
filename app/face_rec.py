@@ -1,7 +1,7 @@
-from ask import convex_hull_sequence
-from image_store import ImageStore
-from transform import transform
-from model import make_model
+from core.ask import convex_hull_sequence
+from app.image_store import ImageStore
+from core.transform import transform
+from core.model import make_model
 from sklearn.metrics import accuracy_score
 from typing import Tuple, Union, Iterator, Optional
 
@@ -171,6 +171,10 @@ class FaceRecognizer:
             asked = next(self.iter_ask)
         finally:
             return asked
+
+    def feed_again(self):
+        for buffer in self.store.absent_images():
+            self.feed(buffer, "feed_again", int(time.time()), force=True)
 
     @staticmethod
     def build(train_dir: str, store_dir: str) -> "FaceRecognizer":

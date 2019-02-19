@@ -107,3 +107,26 @@ class ImageStore:
         info = self.info.iloc[item]
         encs, bbox = self.encs[item, :], self.bbox[item, :]
         return ImageStore(self.store_dir, info, encs, bbox)
+
+    def _absent_images(self):
+        for image in os.listdir(self.img_dir):
+            path = os.path.join(self.img_dir, image)
+            if not os.path.isfile(path):
+                continue
+            if not (image.endswith(".jpeg") or image.endswith(".jpg")):
+                continue
+            index = image.split(".")[0]
+            if index in self.info.index:
+                continue
+            yield path
+
+    def absent_images(self):
+        for path in self._absent_images():
+            with open(path, "rb") as file:
+                buffer = file.read()
+            os.remove(path)
+            yield buffer
+
+    def clean_up(self):
+        for path in self._absent_images():
+            os.remove(path)
