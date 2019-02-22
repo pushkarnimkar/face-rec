@@ -102,7 +102,7 @@ def make_model(method: Optional[Union[str, type]]=None,
     Returns
     -------
     predictor_model : sklearn.base.BaseEstimator, sklearn.base.ClassifierMixin
-        Returns compiled classifier object
+        Returns compiled solver object
 
     Examples
     --------
@@ -120,8 +120,8 @@ def make_model(method: Optional[Union[str, type]]=None,
     >>> from sklearn.linear_model import LogisticRegression
     >>> clf = make_model(method=LogisticRegression)
     >>> clf.fit(x_train, y_train)
-    >>> print("classifier score:", clf.score(x_test, y_test))
-    >>> # classifier score: 0.9736842105263158
+    >>> print("solver score:", clf.score(x_test, y_test))
+    >>> # solver score: 0.9736842105263158
 
     >>> params = dict(solver="lbfgs", multi_class="auto")
     >>> clf = make_model(method=LogisticRegression, params=params)

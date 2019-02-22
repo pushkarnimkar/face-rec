@@ -17,6 +17,9 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 
 def exit_routine(_, __):
+    model = recognizer.solver.export_model()
+    with open(recognizer.stored_model_path, "w") as model_file:
+        json.dump(model, model_file)
     recognizer.store.write()
     global camera
     camera.close()
@@ -30,8 +33,12 @@ with open(CONFIG_FILE) as config_file:
     app = Flask(__name__, static_url_path="/static",
                 static_folder=os.path.join(app_dir, "static"))
 
-    recognizer = FaceRecognizer(store_dir=config["STORE_DIR"])
-    recognizer.train()
+    recognizer = FaceRecognizer(config["STORE_DIR"])
+    if recognizer.has_stored_model:
+        recognizer.load()
+    else:
+        recognizer.train()
+
     camera = USBCamera()
     signal.signal(signal.SIGINT, exit_routine)
 

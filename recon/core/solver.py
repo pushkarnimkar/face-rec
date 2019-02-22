@@ -18,11 +18,11 @@ class FRSolver:
         assert not (pool is None and stored is None), \
             "both of pool and model_json can not be NoneType"
 
-        self.predictor_model: PredictorModel = \
-            load_predictor_model(predictor_method)
-        self.confidence_model: ConfidenceModel = \
-            load_confidence_model(confidence_method)
+        self.predictor_method = predictor_method
+        self.confidence_method = confidence_method
 
+        self.predictor_model: Optional[PredictorModel] = None
+        self.confidence_model: Optional[ConfidenceModel] = None
         self.mapping: Optional[np.ndarray] = None
         self.is_local: bool = local
 
@@ -32,19 +32,30 @@ class FRSolver:
         elif stored is not None:
             self._load_solver(stored)
 
-    def _transform(self, pool: POOLTYPE) -> Tuple[np.ndarray, np.ndarray]:
+    def _transform(self, pool: POOLTYPE) -> \
+            Tuple[np.ndarray, Optional[np.ndarray]]:
+
+        if isinstance(pool, tuple) and len(pool) == 2:
+            return pool
         if not self.is_local:
             encodings, labels = transform_pool(pool)
             return encodings, labels
         elif self.is_local and isinstance(pool, ImageStore):
-            return pool.encs, pool.info["subject"].values
+            return pool.get_verified()
         elif self.is_local and isinstance(pool, dict):
             return (pool["encodings"].reshape(-1, 1),
                     np.array([pool["subject"]]))
+        elif self.is_local and isinstance(pool, np.ndarray):
+            return pool.reshape(1, -1), None
 
     def _build_solver(self, pool: POOLTYPE):
         encodings, subjects = self._transform(pool)
         self.mapping, labels = np.unique(subjects, return_inverse=True)
+
+        self.predictor_model = load_predictor_model(
+            self.predictor_method, subject_count=self.mapping.shape[0])
+        self.confidence_model = load_confidence_model(self.confidence_method)
+
         x_train, x_test, y_train, y_test = \
             self.confidence_model.split(encodings, labels)
         self.predictor_model.fit(x_train, y_train)
@@ -60,7 +71,7 @@ class FRSolver:
         encodings, _ = self._transform(pool)
         _prediction_prob = self.predictor_model.predict(encodings)
         confidence = self.confidence_model.evaluate(_prediction_prob)
-        _prediction = np.argmax(_prediction_prob, axis=0)
+        _prediction = np.argmax(_prediction_prob, axis=1)
         prediction = self.mapping[_prediction]
         return confidence, prediction
 

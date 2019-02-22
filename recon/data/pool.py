@@ -1,9 +1,9 @@
-from typing import List, Tuple
+from typing import Any, Tuple
 
 import numpy as np
 
 
-POOLTYPE = List[dict]
+POOLTYPE = Any
 
 
 def transform_pool(pool: POOLTYPE) -> Tuple[np.ndarray, np.ndarray]:

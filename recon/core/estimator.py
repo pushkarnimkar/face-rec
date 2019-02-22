@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from keras.models import Sequential
 from keras.layers import Dense, Dropout
 from keras.optimizers import SGD
+from keras.utils import to_categorical
 from typing import Callable, Optional
 
 import numpy as np
@@ -48,18 +49,25 @@ def _build_fn(subs_cnt: int) -> Sequential:
 
 
 class NeuralPredictorModel(PredictorModel):
-    def __init__(self, subs_cnt: Optional[int]=0,
+    def __init__(self, subject_count: Optional[int]=0,
                  build_fn: Optional[Callable[[int], Sequential]]=None):
-        if subs_cnt <= 0 or not isinstance(subs_cnt, int):
-            raise ValueError(f"expected positive integer found {subs_cnt}")
-        if build_fn is None:
-            build_fn = _build_fn
-        self.model = build_fn(subs_cnt)
+        self.subject_count = subject_count
+        self.build_fn = build_fn
+        self.model: Optional[Sequential] = None
 
     def fit(self, x_train: np.ndarray, y_train: np.ndarray):
-        self.model.fit(x_train, y_train, epochs=1000, batch_size=50)
+        if self.subject_count <= 0 or not isinstance(self.subject_count, int):
+            raise ValueError(
+                f"expected positive integer found {self.subject_count}")
+        if self.build_fn is None:
+            self.build_fn = _build_fn
+        self.model = self.build_fn(self.subject_count)
+        _y_train = to_categorical(y_train, num_classes=self.subject_count)
+        self.model.fit(x_train, _y_train, epochs=1000, batch_size=50)
 
     def predict(self, x: np.ndarray):
+        if self.model is None:
+            raise ValueError("model not fitted")
         return self.model.predict_proba(x)
 
 
@@ -79,19 +87,23 @@ class ZscoreConfidenceModel(ConfidenceModel):
 
         _count = predictions.shape[1]
         self.mean, self.std = np.zeros((_count,)), np.zeros((_count,))
+        self.count = np.zeros((_count,)).astype(np.int)
 
         for subject in range(_count):
             _mask = np.equal(subjects, subject)
             _subject_predictions = predictions[_mask, subject]
+            if _subject_predictions.shape[0] == 0:
+                continue
             self.mean[subject] = _subject_predictions.mean()
             self.std[subject] = _subject_predictions.std()
             self.count[subject] = _subject_predictions.shape[0]
 
     def evaluate(self, predictions: np.ndarray):
-        _subjects = np.argmax(predictions, axis=1)
-        valid, prob = \
-            self.count >= self.min_count, predictions[:, _subjects]
-        _confidence = np.clip(np.exp((prob - self.mean) / self.std), 0, 1)
+        _subjects, _valid = np.argmax(predictions, axis=1), \
+                            self.count >= self.min_count
+        prob, valid = predictions[:, _subjects].flatten(), _valid[_subjects]
+        _confidence = (prob - self.mean[_subjects]) / self.std[_subjects]
+        _confidence = np.clip(np.exp(_confidence), 0, 1)
         _confidence[~valid] = 0
         return _confidence
 
@@ -106,6 +118,6 @@ def load_confidence_model(method: Optional[str]=None,
 def load_predictor_model(method: Optional[str]=None,
                          **kwargs) -> PredictorModel:
     if method == "neural":
-        assert "subs_cnt" in kwargs, "subject count is required"
+        assert "subject_count" in kwargs, "subject count is required"
         return NeuralPredictorModel(**kwargs)
     raise ValueError(f"invalid method {method}")
