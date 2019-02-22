@@ -1,6 +1,6 @@
 from recon.core.sequence import ConvexHullSequencer
 from recon.app.image_store import ImageStore
-from recon.core.solver import FRSolver
+from recon.core.solver import Solver
 from recon.core.transform import transform
 from typing import Tuple, Union, Iterator, Optional
 
@@ -19,7 +19,7 @@ class FaceRecognizer:
 
         self.stored_model_path = os.path.join(store_dir, "model.json")
         self.store = ImageStore.read(store_dir)
-        self.solver: Optional[FRSolver] = None
+        self.solver: Optional[Solver] = None
         self.confidence_thresh = min_confidence
         self.iter_ask = self._ask()
         self.graph: Optional[tf.Graph] = None
@@ -50,9 +50,9 @@ class FaceRecognizer:
     def train(self):
         if self.graph is not None:
             with self.graph.as_default():
-                self.solver = FRSolver(pool=self.store)
+                self.solver = Solver(pool=self.store)
         else:
-            self.solver = FRSolver(pool=self.store)
+            self.solver = Solver(pool=self.store)
             self.graph = tf.get_default_graph()
         stored_model = self.solver.export_model()
         with open(self.stored_model_path, "w") as model_file:
@@ -61,7 +61,7 @@ class FaceRecognizer:
     def load(self):
         with open(self.stored_model_path) as model_file:
             _stored = json.load(model_file)
-        self.solver = FRSolver(stored=_stored)
+        self.solver = Solver(stored=_stored)
         self.graph = tf.get_default_graph()
 
     def tell(self, name: str, subject: str):

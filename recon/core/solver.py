@@ -8,7 +8,7 @@ from recon.data.pool import POOLTYPE, transform_pool
 import numpy as np
 
 
-class FRSolver:
+class Solver:
     def __init__(self, pool: Optional[POOLTYPE]=None,
                  stored: Optional[dict]=None,
                  local: bool=True,
