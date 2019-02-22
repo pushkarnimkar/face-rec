@@ -1,9 +1,10 @@
 from collections import defaultdict
 from itertools import product
-from jpeg.common import BitReader, ByteReader
-from jpeg.markers import (read_soi, read_eoi, QuantizationTable, HuffmanTable,
-                          read_marker, FrameHeader, ScanHeader, ScanComponent)
-from jpeg.scan import decode_dc, decode_ac
+from recon.jpeg.common import BitReader, ByteReader
+from recon.jpeg.markers import (read_soi, read_eoi, QuantizationTable,
+                                HuffmanTable, read_marker, FrameHeader,
+                                ScanHeader, ScanComponent)
+from recon.jpeg.scan import decode_dc, decode_ac
 from scipy.fftpack import idctn
 from typing import Dict, List, Optional, Union, Tuple
 

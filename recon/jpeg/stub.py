@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from jpeg.compressed import Compressed
+from recon.jpeg.compressed import Compressed
 from matplotlib import pyplot as plt
 
 import cv2

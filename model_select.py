@@ -11,10 +11,10 @@ import numpy as np
 import os
 import pandas as pd
 
-from core.ask import (convex_hull_sequence, random_sequence,
-                      iterative_hull_sequence, dist_mat_order_sequence)
+from recon.core.ask import (convex_hull_sequence, random_sequence,
+                            iterative_hull_sequence, dist_mat_order_sequence)
 from helpers import train_test_split
-from app.image_store import ImageStore
+from recon.app.image_store import ImageStore
 
 
 def make_model(subs_count: int, weights_tmp_file: str) -> Model:

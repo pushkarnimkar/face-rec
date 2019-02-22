@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template, redirect
-from app.device import USBCamera
+from recon.app.device import USBCamera
+from recon.app.face_rec import FaceRecognizer
 
 import base64
 import cv2
@@ -11,42 +12,28 @@ import signal
 import sys
 import time
 
-from app.face_rec import FaceRecognizer
-from app.image_store import ImageStore
+
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 
 def exit_routine(_, __):
     recognizer.store.write()
-    secondary_store.write()
     global camera
-    camera._close()
+    camera.close()
     sys.exit(0)
 
 
-with open(os.environ["FACE_REC_CONFIG"]) as config_file:
+with open(CONFIG_FILE) as config_file:
     config: dict = json.load(config_file)
 
+    app_dir = os.path.dirname(os.path.realpath(__file__))
+    app = Flask(__name__, static_url_path="/static",
+                static_folder=os.path.join(app_dir, "static"))
 
-app_dir = os.path.dirname(os.path.realpath(__file__))
-app = Flask(__name__, static_url_path="/static",
-            static_folder=os.path.join(app_dir, "static"))
-
-
-info_file_path = os.path.join(config["STORE_DIR"], ImageStore.INFO_FILE_NAME)
-if os.path.exists(info_file_path):
     recognizer = FaceRecognizer(store_dir=config["STORE_DIR"])
     recognizer.train()
-elif "TRAIN_DIR" in config:
-    recognizer = FaceRecognizer.build(config["TRAIN_DIR"], config["STORE_DIR"])
-else:
-    raise ValueError("insufficient input")
-
-
-if not os.path.exists(config["UPLOAD_DIR"]):
-    os.mkdir(config["UPLOAD_DIR"])
-
-
-signal.signal(signal.SIGINT, exit_routine)
+    camera = USBCamera()
+    signal.signal(signal.SIGINT, exit_routine)
 
 
 def encode_image(img, box=None, cvt_color=False):
@@ -60,11 +47,6 @@ def encode_image(img, box=None, cvt_color=False):
     # expects image in BGR format understood by cv2
     image_bytes = cv2.imencode(".jpg", img)[1].tostring()
     return base64.encodebytes(image_bytes).decode("ascii")
-
-
-camera = USBCamera()
-secondary_store = ImageStore.read(config["SECONDARY_STORE_DIR"]) \
-    if "SECONDARY_STORE_DIR" in config else None
 
 
 @app.route("/feed", methods=["GET", "POST"])
@@ -154,3 +136,7 @@ def hello_world():
 @app.route("/feed-again")
 def feed_again():
     recognizer.feed_again()
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=9090)

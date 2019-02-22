@@ -1,5 +1,5 @@
 from typing import Tuple, Dict, List
-from jpeg.common import ByteReader
+from recon.jpeg.common import ByteReader
 import numpy as np
 
 

@@ -1,5 +1,5 @@
 from typing import Tuple, List, Dict
-from data.scripts.utils import extract_from_two
+from recon.data.scripts.utils import extract_from_two
 
 import aiofiles
 import aiohttp

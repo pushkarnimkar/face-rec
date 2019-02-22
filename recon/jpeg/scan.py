@@ -1,5 +1,5 @@
-from jpeg.common import BitReader
-from jpeg.markers import HuffmanTable, ScanComponent
+from recon.jpeg.common import BitReader
+from recon.jpeg.markers import HuffmanTable, ScanComponent
 
 import numpy as np
 

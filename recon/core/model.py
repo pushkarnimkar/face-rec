@@ -64,44 +64,44 @@ def make_model(method: Optional[Union[str, type]]=None,
     Creates an Estimator and sets parameters and attributes of the estimator.
     Model can be created by:
 
-    1. De-serializing serialized model string
-    2. Providing model class and configurations
+    1. De-serializing serialized predictor_model string
+    2. Providing predictor_model class and configurations
 
-    Various attributes can be added to model like pre-computed weight matrix,
-    regularization method, model specific attributes etc.
+    Various attributes can be added to predictor_model like pre-computed weight matrix,
+    regularization method, predictor_model specific attributes etc.
 
     Model parameters should be set using set_params method of estimators
 
     This function provides functionality to achieve this through attrs
-    dictionary. Each entry in attrs is added to created model as a model
-    attribute and consumed by model if it is a defined attribute.
+    dictionary. Each entry in attrs is added to created predictor_model as a predictor_model
+    attribute and consumed by predictor_model if it is a defined attribute.
 
     Parameters
     ----------
     method : string, function, optional
-        Method for model creation. It can be name of a method defined in
+        Method for predictor_model creation. It can be name of a method defined in
         `METHODS` dictionary in this module or it can be a callable that
-        returns instance of model upon call.
+        returns instance of predictor_model upon call.
 
     params : dict, optional
         Model parameters. These are set using `set_params` method of Estimator
 
     deserializer : string, function, optional
-        Method for de-serializing model.
+        Method for de-serializing predictor_model.
 
     serialized_model : object, optional
         Model in serialized form
 
     attrs : dict, optional
-        Set attributes of created model, typical set of attributes include
-        model parameters like regularization method, optimization method,
-        model constants like penalty factor. This can also contain values
-        like weight matrix of a linear model. Which are actually learned
+        Set attributes of created predictor_model, typical set of attributes include
+        predictor_model parameters like regularization method, optimization method,
+        predictor_model constants like penalty factor. This can also contain values
+        like weight matrix of a linear predictor_model. Which are actually learned
         values and not parameters.
 
     Returns
     -------
-    model : sklearn.base.BaseEstimator, sklearn.base.ClassifierMixin
+    predictor_model : sklearn.base.BaseEstimator, sklearn.base.ClassifierMixin
         Returns compiled classifier object
 
     Examples
@@ -153,7 +153,7 @@ def make_model(method: Optional[Union[str, type]]=None,
         model = None
 
     if model is None:
-        raise ValueError("could not create model")
+        raise ValueError("could not create predictor_model")
 
     if attrs is not None:
         for attr, value in attrs.items():

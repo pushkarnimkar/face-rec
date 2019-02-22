@@ -1,7 +1,7 @@
-from core.ask import convex_hull_sequence
-from app.image_store import ImageStore
-from core.transform import transform
-from core.model import make_model
+from recon.core.ask import convex_hull_sequence
+from recon.app.image_store import ImageStore
+from recon.core.transform import transform
+from recon.core.model import make_model
 from sklearn.metrics import accuracy_score
 from typing import Tuple, Union, Iterator, Optional
 

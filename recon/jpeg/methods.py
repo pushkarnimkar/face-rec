@@ -1,4 +1,4 @@
-from jpeg.compressed import Compressed
+from recon.jpeg.compressed import Compressed
 from typing import Callable, Any
 
 import numpy as np
