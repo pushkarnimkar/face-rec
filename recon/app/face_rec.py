@@ -1,4 +1,4 @@
-from recon.core.ask import convex_hull_sequence
+from recon.core.sequence import ConvexHullSequencer
 from recon.app.image_store import ImageStore
 from recon.core.solver import FRSolver
 from recon.core.transform import transform
@@ -48,8 +48,12 @@ class FaceRecognizer:
             return None, value
 
     def train(self):
-        self.solver = FRSolver(pool=self.store)
-        self.graph = tf.get_default_graph()
+        if self.graph is not None:
+            with self.graph.as_default():
+                self.solver = FRSolver(pool=self.store)
+        else:
+            self.solver = FRSolver(pool=self.store)
+            self.graph = tf.get_default_graph()
         stored_model = self.solver.export_model()
         with open(self.stored_model_path, "w") as model_file:
             json.dump(stored_model, model_file)
@@ -65,7 +69,9 @@ class FaceRecognizer:
         if name in self.store.info.index:
             self.store.info.loc[name, cols] = (subject, 1, True)
 
-    def _ask(self, method="input_order") -> Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
+    def _ask(self, method="input_order") -> \
+            Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
+
         index = np.where(~self.store.info["verified"])[0]
 
         if method == "input_order":
@@ -75,7 +81,8 @@ class FaceRecognizer:
             if callable(method):
                 sequence = index[method(unverified_encs)]
             elif method == "convex_hull":
-                sequence = index[convex_hull_sequence(unverified_encs)]
+                sequencer = ConvexHullSequencer()
+                sequence = index[sequencer.sequence(unverified_encs)]
             else:
                 raise ValueError("method not understood")
 
@@ -106,7 +113,6 @@ class FaceRecognizer:
             "build method expects empty store"
         recognizer = FaceRecognizer(store_dir)
         jpegs = filter(lambda n: n.endswith(".jpg"), os.listdir(train_dir))
-
         names = map(lambda n: (n, n[:-4].split("_")[0]), jpegs)
 
         for name, subject in names:
@@ -122,10 +128,6 @@ class FaceRecognizer:
     @property
     def subs_lst(self):
         return list(self.store.info["subject"].unique())
-
-    @property
-    def subs_map(self):
-        return {sub: i for i, sub in enumerate(self.subs_lst)}
 
     @property
     def has_stored_model(self):

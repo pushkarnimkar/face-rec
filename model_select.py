@@ -4,15 +4,17 @@ from keras.optimizers import SGD
 from keras.utils import to_categorical
 from functools import partial
 from tqdm import tqdm
-from typing import Tuple
+from typing import Tuple, List
 
 import argparse
 import numpy as np
 import os
 import pandas as pd
 
-from recon.core.ask import (convex_hull_sequence, random_sequence,
-                            iterative_hull_sequence, dist_mat_order_sequence)
+from recon.core.sequence import (
+    Sequencer, ConvexHullSequencer, RandomSequencer,
+    IterativeHullSequencer, DistanceMatrixSequencer
+)
 from helpers import train_test_split
 from recon.app.image_store import ImageStore
 
@@ -79,7 +81,7 @@ def auc_alc(values: np.ndarray, intv: float):
     return intv * (0.5 * (values[0] + values[-1]) + values[1:-1].sum())
 
 
-def find_scores(store_dir: str, methods: dict,
+def find_scores(store_dir: str, methods: List[Sequencer],
                 weights_tmp_file: str= "/tmp/weights.hdf5",
                 train_fract: float=0.6, progress=True) -> dict:
 
@@ -87,11 +89,13 @@ def find_scores(store_dir: str, methods: dict,
     x, y = store.encs, pd.Categorical(store.info["subject"]).codes
     x_train, y_train, x_test, y_test = train_test_split(x, y, train_fract)
 
-    for method, func in methods.items():
-        seq = func(x_train)
+    for sequencer in methods:
+        seq = sequencer.sequence(x_train)
         assert set(seq) == set(np.arange(x_train.shape[0]))
-        scores[method] = eval_seq(x_train, y_train, x_test, y_test, seq,
-                                  weights_tmp_file, method, progress=progress)
+        scores[sequencer.name] = eval_seq(
+            x_train, y_train, x_test, y_test, seq,
+            weights_tmp_file, sequencer.name, progress=progress
+        )
 
     os.remove(weights_tmp_file)
     return (pd.concat(list(scores.values()))
@@ -103,9 +107,9 @@ if __name__ == "__main__":
     parser.add_argument("store_dir")
 
     args = parser.parse_args()
-    methods = dict(dist_mat_order=dist_mat_order_sequence,
-                   iterative_hull=iterative_hull_sequence,
-                   random=random_sequence,
-                   convex_hull=convex_hull_sequence)
-    final_scores = find_scores(args.store_dir, methods)
+    _methods: List[Sequencer] = [
+        DistanceMatrixSequencer, IterativeHullSequencer,
+        RandomSequencer, ConvexHullSequencer
+    ]
+    final_scores = find_scores(args.store_dir, _methods)
     print(final_scores)
