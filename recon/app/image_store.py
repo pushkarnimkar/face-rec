@@ -60,12 +60,15 @@ class ImageStore:
 
     @classmethod
     def read(cls, store_dir: str) -> "ImageStore":
-        info = pd.read_csv(os.path.join(store_dir, cls.INFO_FILE_NAME))
-        info = info.set_index("name")
+        if len(os.listdir(store_dir)) > 1:
+            info = pd.read_csv(os.path.join(store_dir, cls.INFO_FILE_NAME))
+            info = info.set_index("name")
 
-        encs = np.load(os.path.join(store_dir, cls.ENCS_FILE_NAME))
-        bbox = np.load(os.path.join(store_dir, cls.BBOX_FILE_NAME))
-        return ImageStore(store_dir, info, encs, bbox)
+            encs = np.load(os.path.join(store_dir, cls.ENCS_FILE_NAME))
+            bbox = np.load(os.path.join(store_dir, cls.BBOX_FILE_NAME))
+            return ImageStore(store_dir, info, encs, bbox)
+        else:
+            return ImageStore(store_dir)
 
     def write(self):
         print("writing info file")
@@ -130,3 +133,7 @@ class ImageStore:
     def clean_up(self):
         for path in self._absent_images():
             os.remove(path)
+
+    def get_verified(self):
+        mask = self.info["verified"].values
+        return self.encs[mask], self.info["subject"][mask].values
