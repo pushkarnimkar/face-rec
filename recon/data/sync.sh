@@ -63,6 +63,8 @@ then
     done
 fi
 
-export PYTHONPATH=${PYTHONPATH}:${DATA_DIR}/..;
-${PYTHON} ${DATA_DIR}/scripts/imei.py ${DATA_DIR}/live/ --start 1548181810000
+export PYTHONPATH=${PYTHONPATH}:${DATA_DIR}/../../;
+meta_cmd="${PYTHON} ${DATA_DIR}/scripts/imei.py ${DATA_DIR}/live/ --start 1548181810000"
+echo $meta_cmd;
+eval $meta_cmd;
 

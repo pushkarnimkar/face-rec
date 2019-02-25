@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Tuple, List, Dict
 from recon.data.scripts.utils import extract_from_two
 
@@ -24,11 +25,11 @@ def _parse_logs(logs: List[dict], idevice: str):
         if log_obj["did_attach"]:
             if _buffer is not None:
                 raise ValueError("unexpected attach log")
-            _buffer = log_obj
+            _buffer = defaultdict(lambda: None, **log_obj)
         else:
             if _buffer is None:
                 raise ValueError("unexpected detach log")
-            _attachments.append((_buffer, log_obj))
+            _attachments.append((dict(_buffer), log_obj))
             _buffer = None
     else:
         attachments = []
