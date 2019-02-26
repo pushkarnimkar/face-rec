@@ -106,40 +106,61 @@ def _make_huff_code(huff_size: np.ndarray) -> np.ndarray:
     return np.array(huff_code, np.uint16)
 
 
-def _order_codes(huff_size: np.ndarray, huff_code: np.ndarray, huff_val: List[int]):
-    huff_codes, huff_sizes = {}, {}
-    for idx, val in enumerate(huff_val):
-        huff_codes[val], huff_sizes[val] = huff_code[idx], huff_size[idx]
-    return huff_codes, huff_sizes
-
-
 class HuffmanTable:
     def __init__(self, bs: bytes):
         self.is_ac, self.table_id = parse_byte_params(bs[0])
+        # bits contains size of each bucket of code length
         self.bits = list(bs[1:17])
+        # huff_val contains each symbol that is encoded
         self.huff_val = list(bs[17:17 + sum(self.bits)])
-        self.huff_size, last_k = _make_huff_size(self.bits)
-        self.huff_code = _make_huff_code(self.huff_size)
-        self.ehufco, self.ehufsi = \
-            _order_codes(self.huff_size, self.huff_code, self.huff_val)
-        self.min_code = np.repeat(-1, 17).astype(np.uint16)
-        self.max_code = np.repeat(-1, 17).astype(np.uint16)
 
-        self.val_ptr = {}
+        # huff_size contains length of code for symbol at index in huff_val
+        self.huff_size, last_k = _make_huff_size(self.bits)
+        # huff_code contains code associated with symbol at index in huff_val
+        self.huff_code = _make_huff_code(self.huff_size)
+
+        # contain minimum and maximum codes of each size
+        self.min_code, self.max_code = (np.repeat(-1, 17).astype(np.uint16),
+                                        np.repeat(-1, 17).astype(np.uint16))
+        # contains index in huff_val from which codes of size index start
+        self.val_ptr = np.zeros(17, dtype=np.uint8)
         self._min_max_codes()
+
+        # lookups enable fast parsing of codes. But if lookup fails,
+        # we fallback to our regular scanning process.
+        self.lookup_size = np.zeros(256, dtype=np.uint8)
+        self.lookup_code = np.zeros(256, dtype=np.uint8)
+        self._make_lookup()
 
     def _min_max_codes(self):
         val_idx = 0
         for i in range(1, 17):
             if self.bits[i - 1] == 0:
-                self.val_ptr[i] = None
                 self.max_code[i] = -1
                 continue
             self.val_ptr[i] = val_idx
             self.min_code[i] = self.huff_code[val_idx]
-            val_idx = val_idx + self.bits[i - 1] - 1
+            val_idx += (self.bits[i - 1] - 1)
             self.max_code[i] = self.huff_code[val_idx]
             val_idx += 1
+
+    def _make_lookup(self):
+        _code_index = 0
+        for si in range(1, 9):
+            if self.min_code[si] == 0xFF:
+                continue
+            while self.huff_size[_code_index] == si:
+                _rem, _code, val = (8 - si, self.huff_code[_code_index],
+                                    self.huff_val[_code_index])
+                for _nc in range(1 << _rem):
+                    code = (_code << _rem) + _nc
+                    self.lookup_size[code] = si
+                    self.lookup_code[code] = val
+                _code_index += 1
+
+        # while index != 256:
+        #     _size = self.huff_size[index]
+        #     _remaining = 8 - _size
 
 
 class FrameHeader:

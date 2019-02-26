@@ -5,10 +5,15 @@ import numpy as np
 
 
 def decode(reader: BitReader, huff_tbl: HuffmanTable):
-    code, i = reader.next_bit(), 1
-    while code > huff_tbl.max_code[i] or huff_tbl.max_code[i] == 0xFFFF:
-        i, code = i + 1, (code << 1) + reader.next_bit()
-    val_idx = huff_tbl.val_ptr[i] + code - huff_tbl.min_code[i]
+    _peek = reader.peek()
+    if huff_tbl.lookup_size[_peek] != 0:
+        reader.seek(huff_tbl.lookup_size[_peek])
+        return huff_tbl.lookup_code[_peek]
+
+    code, si = reader.next_bit(), 1
+    while code > huff_tbl.max_code[si] or huff_tbl.max_code[si] == 0xFFFF:
+        si, code = si + 1, (code << 1) + reader.next_bit()
+    val_idx = huff_tbl.val_ptr[si] + code - huff_tbl.min_code[si]
     value = huff_tbl.huff_val[val_idx]
     return value
 
@@ -18,21 +23,6 @@ def receive(reader: BitReader, ssss: int):
     while i != ssss:
         i, v = i + 1, (v << 1) + reader.next_bit()
     return v, i
-
-
-def ones(s: int):
-    if s == 0:
-        return 0
-    v, i = 1, 1
-    while i != s:
-        v, i = (v << 1) + 1, i + 1
-    return v
-
-
-def read_twos_comp(v: int, i: int):
-    """read twos complement of value v coded with i bits"""
-    return -((v ^ ones(v.bit_length())) + 1) \
-        if (v >> (i - 1)) & 1 == 1 else v
 
 
 def extend(v, t):

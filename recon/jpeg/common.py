@@ -52,11 +52,11 @@ class ByteReader:
 
 
 class BitReader:
-    def __init__(self, stream: ByteReader, bs: int=1):
-        self._stream: ByteReader = stream
-        self._count: int = -1
-        self._buffer: int = None
-        self._buffer_size = bs
+    def __init__(self, stream: ByteReader, buffer_size: int=1, peek_size: int=8):
+        self.buffer_size = buffer_size
+        self.peek_size = peek_size
+        self._stream = stream
+        self._bits_ptr, self._buffer = -1, 0
         self._refill_buffer()
 
     def _refill_buffer(self, buffer: Optional[bytes]=None):
@@ -69,22 +69,28 @@ class BitReader:
             repetition of sanity checks (b'\xff\x00')
 
         """
-        read_bits = 0
-        self._buffer = self._buffer >> self._count if self._count >= 0 else 0
+        bits_read, buffer_max_bits = 0, self.buffer_size * 8
+
+        # Following line is for clearing buffer, as it keeps on accumulating
+        # values as integer type in python has no upper bound.
+        # If had used a fixed size buffer like np.uint32 instead (or uint32_t
+        # in C), this was not required.
+        self._buffer = self._buffer & ((1 << buffer_max_bits) - 1)
+
         if buffer is None:
-            for _ in range(self._buffer_size):
+            for _ in range((buffer_max_bits - (self._bits_ptr + 1)) // 8):
                 try:
-                    next_byte = self._stream.read(1)[0]
-                    if next_byte == 0xFF:
-                        temp_byte = self._stream.read(1)[0]
-                        if temp_byte != 0:
+                    _next_byte = self._stream.read(1)[0]
+                    if _next_byte == 0xFF:
+                        _byte_buff = self._stream.read(1)[0]
+                        if _byte_buff != 0:
                             self._stream.seek_ptr(-2)
                             break
-                    self._buffer = (self._buffer << 8) + next_byte
-                    read_bits += 8
+                    self._buffer = (self._buffer << 8) + _next_byte
+                    bits_read += 8
                 except IndexError:
                     break
-            self._count += read_bits
+            self._bits_ptr += bits_read
         else:
             found_ff = False
             for byte in buffer:
@@ -94,22 +100,36 @@ class BitReader:
                 if byte == 0xFF:
                     found_ff = True
                 self._buffer = (self._buffer << 8) + byte
-                read_bits += 8
-            self._count += read_bits
+                bits_read += 8
+            self._bits_ptr += bits_read
 
     def next_bit(self):
-        if self._count == -1:
+        if self._bits_ptr == -1:
             self._refill_buffer()
-        if self._count == -1:
-            return None
-        self._count, bit = self._count - 1, (self._buffer >> self._count) & 1
+        if self._bits_ptr == -1:
+            raise EOFError("reached end of data segment")
+        bit, self._bits_ptr = ((self._buffer >> self._bits_ptr) & 1,
+                               self._bits_ptr - 1)
         return bit
 
+    def peek(self):
+        if self._bits_ptr < self.peek_size:
+            self._refill_buffer()
+        shift_bits = self._bits_ptr + 1 - self.peek_size
+        mask = (1 << self.peek_size) - 1
+        try:
+            return (self._buffer >> shift_bits) & mask
+        except ValueError:
+            return self._buffer << (8 - shift_bits) & mask
+
+    def seek(self, bits: int):
+        self._bits_ptr -= int(bits)
+
     def get_bit_ptr(self):
-        return self._count
+        return self._bits_ptr
 
     def set_bit_ptr(self, bit_pos: int):
-        self._count = bit_pos
+        self._bits_ptr = bit_pos
         return self
 
     def get_pos(self):
@@ -120,21 +140,21 @@ class BitReader:
         self._stream.set_ptr(stream_pos)
 
         _buffer_start, _ff_count, _look_behind = \
-            stream_pos - self._buffer_size, 0, 1
-        _next_buffer = self._stream.peek(-self._buffer_size - _look_behind)
+            stream_pos - self.buffer_size, 0, 1
+        _next_buffer = self._stream.peek(-self.buffer_size - _look_behind)
         while _next_buffer.count(b"\xFF\x00") != _ff_count:
             _ff_count, _look_behind = _ff_count + 1, _look_behind + 1
             _next_buffer = self._stream.peek(
-                -self._buffer_size - _look_behind)
+                -self.buffer_size - _look_behind)
 
         self._refill_buffer(_next_buffer[1:])
-        self._count = bit_pos
+        self._bits_ptr = bit_pos
         return self
 
     def done(self):
-        if self._count < 0:
+        if self._bits_ptr < 0:
             return self
-        self._stream.seek_ptr(-(self._count + 1 % 8))
+        self._stream.seek_ptr(-(self._bits_ptr + 1 % 8))
         return self
 
     def __del__(self):

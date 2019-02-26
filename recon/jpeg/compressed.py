@@ -27,8 +27,8 @@ def _scan_imcu(reader: BitReader, scan_header: ScanHeader, state_dc: list):
         mcu20 = _read_comp(reader, state_dc, components[2])
         mcu30 = _read_comp(reader, state_dc, components[3])
         return mcu11, mcu12, mcu20, mcu30
-    except TypeError:
-        return None
+    except TypeError as te:
+        raise te
 
 
 def _decompress_comp(mcu: np.ndarray, quant_tbl: QuantizationTable):
@@ -83,6 +83,7 @@ class Compressed:
         self.scan_headers: List[ScanHeader] = []
         self.imcus = []
         self.parse_success = False
+        self._bit_buffer_size = 4
 
     def parse(self):
         if len(self.imcus) != 0:
@@ -106,7 +107,7 @@ class Compressed:
             scan_header = ScanHeader(content, self.sof0, self.ac_huff_tbl,
                                      self.dc_huff_tbl, self.quant_tbl)
             self.scan_headers.append(scan_header)
-            reader = BitReader(self.stream, bs=4)
+            reader = BitReader(self.stream, buffer_size=self._bit_buffer_size)
             state_dc, mcus = [0, 0, 0, 0], defaultdict(list)
             for _ in range((self.sof0.x // 8 // self.sof0.imcu_width) *
                            (self.sof0.y // 8 // self.sof0.imcu_height)):
@@ -115,12 +116,14 @@ class Compressed:
                     if _scan_imcu(reader, scan_header, state_dc) is None:
                         break
                 except Exception as exc:
+                    print(f"index = {_}")
                     raise exc
             else:
                 read_eoi(self.stream)
                 self.parse_success = True
 
             if not self.parse_success:
+                print(f"index = {_}")
                 raise ValueError("invalid JPEG input")
         else:
             raise ValueError(f"expected start of segment found {marker}")
@@ -143,7 +146,7 @@ class Compressed:
         i = (y * 80 + x)
         _i = i // 2
         pos, state = self.imcus[_i][:2], list(self.imcus[_i][2:])
-        reader = BitReader(self.stream, bs=4)
+        reader = BitReader(self.stream, buffer_size=self._bit_buffer_size)
         reader.set_ptr(pos)
         imcu = _scan_imcu(reader, self.scan_headers[0], state)
         if imcu is None:
