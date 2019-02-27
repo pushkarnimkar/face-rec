@@ -27,11 +27,12 @@ def plot(filename: str):
 
 
 def measure_time(filename: str):
-    return timeit.timeit(f"main(\"{filename}\")", "from __main__ import main", number=10)
+    return timeit.timeit(f"main(\"{filename}\")",
+                         "from __main__ import main", number=10)
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("image", help="location of image to be read")
     args = parser.parse_args()
-    print(measure_time(args.image))
+    plot(args.image)
