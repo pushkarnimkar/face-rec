@@ -1,13 +1,14 @@
 #ifndef ENUMS_H
 #define ENUMS_H
 
-typedef enum {
+typedef enum ParseStatus {
     SOI_NOT_FOUND,
+    HUFFMAN_TABLE_PARSE_ERROR,
     PARSE_SUCCESS,
     UNKNOWN_MARKER
 } ParseStatus;
 
-typedef enum {
+typedef enum MarkerType {
     SOI = 0xD8,
     APP0 = 0xE0,
     DQT = 0xDB,

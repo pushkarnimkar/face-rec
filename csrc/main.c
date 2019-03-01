@@ -2,8 +2,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-#include "./config.h"
-#include "./jpeg/compressed.h"
+#include "config.h"
+#include "jpeg/compressed.h"
 
 
 int main(int argc, char* argv[]) {

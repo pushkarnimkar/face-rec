@@ -5,8 +5,10 @@
 #include <stdint.h>
 #include "enums.h"
 
-typedef struct {
-
+typedef struct QuantizationTable {
+    uint8_t quant_mat[64];
+    uint8_t pq;
+    uint8_t tid;
 } QuantizationTable;
 
 // Initializes quant_tbl using size number of bytes from _buffer

@@ -6,7 +6,7 @@
 #include "enums.h"
 #include "huff.h"
 #include "quant.h"
-#include "sof0.h"
+#include "sof.h"
 #include "sos.h"
 
 typedef struct {
