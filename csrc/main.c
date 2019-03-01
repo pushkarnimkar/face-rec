@@ -1,12 +1,13 @@
-#include "./config.h"
-#include "./jpeg/compressed.h"
-#ifdef DEVELOPMENT_ENV
 #include <stdio.h>
 #include <stdlib.h>
-#endif
+#include <stdint.h>
+
+#include "./config.h"
+#include "./jpeg/compressed.h"
+
 
 int main(int argc, char* argv[]) {
-    unsigned char buffer[102400];
+    uint8_t buffer[102400];
     #ifdef DEVELOPMENT_ENV
     if (argc == 1) {
         fprintf(stderr, "insufficient arguments\n");
