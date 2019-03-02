@@ -6,10 +6,6 @@
 #include "enums.h"
 
 typedef struct HuffmanTable {
-    // specifies whether it is an AC table
-    uint8_t is_ac;
-    // table id
-    uint8_t tid;
     // huff_val contains ordered symbols that are encoded
     uint8_t* huff_val;
     // contains size of each of huff_val (can be dynamically allocated)

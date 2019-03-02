@@ -9,12 +9,13 @@
 #include "sof.h"
 #include "sos.h"
 
-typedef struct {
+typedef struct Compressed {
     unsigned char is_parsed;
-    HuffmanTable huff_tbl[4];
     QuantizationTable quant_tbl[2];
+    HuffmanTable dc_huff_tbl[2];
+    HuffmanTable ac_huff_tbl[2];
     FrameHeader sof0;
-    SegmentHeader sos;
+    ScanHeader sos;
 } Compressed;
 
 void parse(Compressed* comp, uint8_t* buffer);

@@ -67,11 +67,7 @@ void make_lookup_tables(HuffmanTable* huff_tbl) {
 ParseStatus 
 parse_huff_tbl(uint8_t** __buffer, size_t size, HuffmanTable* huff_tbl) {
     uint8_t* __init_buffer = *__buffer;
-
-    huff_tbl->is_ac = (**__buffer & 0xF0) >> 4;
-    huff_tbl->tid = **__buffer & 0x0F;
-
-    uint8_t* bits = ++(*__buffer);
+    uint8_t* bits = *__buffer;
     size_t huff_val_size = 0;
     for (int i = 0; i < 16; i++) {
         huff_val_size += *((*__buffer)++);

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 #include "compressed.h"
+#include "utils.h"
 
 void read_soi(unsigned char** _buffer) {
     if (**_buffer != 0xFF || *(*_buffer + 1) != 0xD8) {
@@ -15,17 +16,18 @@ void parse(Compressed* comp, uint8_t* buffer) {
     read_soi(&buffer);
     uint8_t quant_tbl_cnt = 0, huff_tbl_cnt = 0;
     while (1) {
-        if (*buffer == 0xFF && *(buffer + 1) != 0x00) {
-            size_t size = ((size_t)(*(buffer + 2)) << 8) + (size_t)(*(buffer + 3)) - 2;
-            switch (*(buffer + 1)) {
+        if (*buffer == 0xFF && *(++buffer) != 0x00) {
+            MarkerType marker = (MarkerType)(*(buffer++));
+            size_t size = (size_t) READSIZE2B(buffer) - 2;
+            // size_t size = ((size_t)(*(buffer + 2)) << 8) + (size_t)(*(buffer + 3)) - 2;
+            switch (marker) {
         case APP0: {
             // Skip the marker we dont use APP0
-            buffer += size + 4;
+            buffer += size;
             break;
         }
         case DQT: {
             QuantizationTable* tbl = comp->quant_tbl + quant_tbl_cnt++;
-            buffer += 4;
             ParseStatus status = parse_quant_tbl(&buffer, size, tbl);
             if (status != PARSE_SUCCESS) {
                 parse_failure(status);
@@ -33,16 +35,18 @@ void parse(Compressed* comp, uint8_t* buffer) {
             break;
         }
         case DHT: {
-            HuffmanTable* tbl = comp->huff_tbl + huff_tbl_cnt++;
-            buffer += 4;
-            ParseStatus status = parse_huff_tbl(&buffer, size, tbl);
+            uint8_t is_ac = (*buffer & 0xF0) >> 4;
+            uint8_t tid = *(buffer++) & 0x0F;
+            HuffmanTable* tbl = (
+                is_ac ? comp->ac_huff_tbl : comp->dc_huff_tbl
+            ) + tid;
+            ParseStatus status = parse_huff_tbl(&buffer, size - 1, tbl);
             if (status != PARSE_SUCCESS) {
                 parse_failure(status);
             }
             break;
         }
         case SOF0: {
-            buffer += 4;
             ParseStatus status = parse_sof(&buffer, size, &comp->sof0);
             if (status != PARSE_SUCCESS) {
                 parse_failure(status);
@@ -50,8 +54,10 @@ void parse(Compressed* comp, uint8_t* buffer) {
             break;
         }
         case SOS: {
-            buffer += 4;
-            ParseStatus status = parse_sos(&buffer, size, &comp->sos);
+            ParseStatus status = parse_sos(
+                &buffer, size, &comp->sos, &comp->sof0, comp->quant_tbl, 
+                comp->dc_huff_tbl, comp->ac_huff_tbl
+            );
             if (status != PARSE_SUCCESS) {
                 parse_failure(status);
             }
