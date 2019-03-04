@@ -8,6 +8,7 @@
 #include "quant.h"
 #include "sof.h"
 #include "sos.h"
+#include "scan.h"
 
 typedef struct Compressed {
     unsigned char is_parsed;
@@ -16,6 +17,7 @@ typedef struct Compressed {
     HuffmanTable ac_huff_tbl[2];
     FrameHeader sof0;
     ScanHeader sos;
+    ScanOutput scanned;
 } Compressed;
 
 void parse(Compressed* comp, uint8_t* buffer);

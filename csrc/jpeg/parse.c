@@ -68,6 +68,7 @@ void parse(Compressed* comp, uint8_t* buffer) {
         }
             }
         } else {
+            ParseStatus status = scan(&buffer, comp->sos, &comp->scanned);
             while (!(*(buffer) == 0xFF && *(buffer + 1) == EOI)) {
                 buffer++;
             }

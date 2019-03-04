@@ -7,6 +7,7 @@ void parse_scan_comp(
 ) {
     uint8_t comp_id = *((*buffer)++);
     comp->fcomp = &sof0->comp[comp_id];
+
     uint8_t td = (**buffer & 0xF0) >> 4;
     uint8_t ta = *((*buffer)++) & 0x0F;
     comp->dc_huff_tbl = dc_huff_tbl + td;
@@ -28,6 +29,7 @@ ParseStatus parse_sos(
         );
     }
     *buffer += 3;
+    sos->sof0 = sof0;
 
     if (*buffer == __init_buffer + size) {
         return PARSE_SUCCESS;

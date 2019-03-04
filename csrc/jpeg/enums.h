@@ -5,6 +5,8 @@ typedef enum ParseStatus {
     SOI_NOT_FOUND,
     HUFFMAN_TABLE_PARSE_ERROR,
     PARSE_SUCCESS,
+    SCAN_FAILURE,
+    REACHED_EOI,
     UNKNOWN_MARKER
 } ParseStatus;
 

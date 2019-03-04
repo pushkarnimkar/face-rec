@@ -19,6 +19,7 @@ typedef struct ScanComponent {
 typedef struct ScanHeader {
     uint8_t n_comp;
     ScanComponent comp[3];
+    FrameHeader* sof0;
 } ScanHeader;
 
 // Initializes huff_tbl using size number of bytes from _buffer

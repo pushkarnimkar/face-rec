@@ -5,6 +5,10 @@
 #include <stdint.h>
 #include "enums.h"
 
+extern const uint8_t ZZ[64];
+
+extern const uint8_t ZZ_INV[64];
+
 typedef struct QuantizationTable {
     uint8_t quant_mat[64];
     uint8_t pq;

@@ -13,11 +13,14 @@ sof.o: jpeg/sof.c jpeg/sof.h jpeg/enums.h
 sos.o: jpeg/sos.c jpeg/sos.h jpeg/enums.h
 	$(CC) jpeg/sos.c $(CFLAGS) -c -o sos.o
 
+scan.o: jpeg/scan.c jpeg/sos.h jpeg/scan.h jpeg/enums.h
+	$(CC) jpeg/scan.c $(CFLAGS) -c -o scan.o
+
 jpeg.o: jpeg/parse.c jpeg/compressed.h jpeg/enums.h config.h 
 	$(CC) jpeg/parse.c $(CFLAGS) -c -o jpeg.o
 
-main: main.c config.h jpeg.o huff.o quant.o sof.o sos.o jpeg/compressed.h
-	$(CC) main.c jpeg.o huff.o quant.o sos.o sof.o $(CFLAGS) -o main
+main: main.c config.h jpeg.o huff.o quant.o sof.o sos.o scan.o jpeg/compressed.h
+	$(CC) main.c jpeg.o huff.o quant.o sos.o sof.o scan.o $(CFLAGS) -o main
 
 .PHONY: clean
 clean: 

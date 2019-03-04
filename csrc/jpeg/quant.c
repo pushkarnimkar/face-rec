@@ -1,6 +1,6 @@
 #include "quant.h"
 
-uint8_t zz[] = {
+const uint8_t ZZ[64] = {
      0,  1,  5,  6, 14, 15, 27, 28,
      2,  4,  7, 13, 16, 26, 29, 42,
      3,  8, 12, 17, 25, 30, 41, 43,
@@ -11,13 +11,26 @@ uint8_t zz[] = {
     35, 36, 48, 49, 57, 58, 62, 63
 };
 
+const uint8_t ZZ_INV[64] = {
+     0,  1,  8, 16,  9,  2,  3, 10,
+    17, 24, 32, 25, 18, 11,  4,  5,
+    12, 19, 26, 33, 40, 48, 41, 34,
+    27, 20, 13,  6,  7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36,
+    29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46,
+    53, 60, 61, 54, 47, 55, 62, 63
+};
+
 ParseStatus 
-parse_quant_tbl(uint8_t** __buffer, size_t size, QuantizationTable* quant_tbl) {
+parse_quant_tbl(
+    uint8_t** __buffer, size_t size, QuantizationTable* quant_tbl
+) {
     quant_tbl->pq = (**__buffer & 0xF0) >> 4;
     quant_tbl->tid = **__buffer & 0x0F;
     *__buffer += 1;
     for (int i = 0; i < 64; i++) {
-        quant_tbl->quant_mat[i] = (uint8_t)(*(*__buffer + zz[i]));
+        quant_tbl->quant_mat[i] = (uint8_t)(*(*__buffer + ZZ[i]));
     }
     *__buffer += 64;
     return PARSE_SUCCESS;
