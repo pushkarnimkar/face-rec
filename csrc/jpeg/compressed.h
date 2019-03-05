@@ -3,11 +3,6 @@
 
 #include <stdint.h>
 #include "../config.h"
-#include "enums.h"
-#include "huff.h"
-#include "quant.h"
-#include "sof.h"
-#include "sos.h"
 #include "scan.h"
 
 typedef struct Compressed {
