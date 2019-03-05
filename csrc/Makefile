@@ -22,8 +22,11 @@ scan.o: jpeg/scan.c jpeg/scan.h jpeg/coef.h
 jpeg.o: jpeg/parse.c jpeg/compressed.h jpeg/enums.h config.h 
 	$(CC) jpeg/parse.c $(CFLAGS) -c -o jpeg.o
 
-main: main.c config.h jpeg.o huff.o quant.o sof.o sos.o coef.o scan.o jpeg/compressed.h
-	$(CC) main.c jpeg.o huff.o quant.o sos.o sof.o coef.o scan.o $(CFLAGS) -o main
+math.o: maths/idct.c maths/idct.h
+	$(CC) maths/idct.c $(CFLAGS) -c -o math.o
+
+main: main.c config.h jpeg.o huff.o quant.o sof.o sos.o coef.o scan.o math.o jpeg/compressed.h
+	$(CC) main.c jpeg.o huff.o quant.o sos.o sof.o coef.o scan.o math.o $(CFLAGS) -o main
 
 .PHONY: clean
 clean: 

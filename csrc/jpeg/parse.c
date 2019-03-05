@@ -5,7 +5,7 @@
 #include "compressed.h"
 #include "utils.h"
 
-void read_soi(unsigned char** _buffer) {
+void read_soi(uint8_t** _buffer) {
     if (**_buffer != 0xFF || *(*_buffer + 1) != 0xD8) {
         parse_failure(SOI_NOT_FOUND);
     }

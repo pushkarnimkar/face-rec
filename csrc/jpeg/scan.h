@@ -2,6 +2,7 @@
 #define SCAN_H
 
 #include "coef.h"
+#include "../maths/idct.h"
 
 // reason for using structure like this it to give flexibility of 
 // adding and removing output components as required

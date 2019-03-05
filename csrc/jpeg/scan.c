@@ -15,9 +15,17 @@ scan(uint8_t** buffer, ScanHeader sos, ScanOutput* out) {
     int imcu_vert_count = sos.sof0->x / sos.sof0->imcu_ht / 8;
     int imcu_net_count = imcu_hori_count * imcu_vert_count;
 
+    uint8_t mcu[64];
     for (int i = 0; i < imcu_net_count; i++) {
         memset((void*) coef, 0, COEF_BUFFER_SIZE * sizeof(COEF_DTYPE));
         status = read_imcu_coef(&reader, sos, prev_dc, coef);
+
+        // memset((void*) mcu, 0, 64 * sizeof(COEF_DTYPE));
+        idct2(coef, mcu);
+
+        if (status != PARSE_SUCCESS) {
+            return status;
+        }
     }
 
     return PARSE_SUCCESS;
