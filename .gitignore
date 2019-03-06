@@ -1,6 +1,8 @@
-__pycache__/
 .idea/
+.vscode/
 .ipynb_checkpoints/
+*.swp
+__pycache__/
 store_dir/
 notebooks/
 var/
