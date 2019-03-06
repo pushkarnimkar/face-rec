@@ -20,5 +20,11 @@ int main(int argc, char* argv[]) {
     #endif
     Compressed comp;
     parse(&comp, buffer);
+
+    #ifdef DEVELOPMENT_ENV
+    fp = fopen(argv[2], "wb");
+    fwrite((void*) comp.scanned.image, sizeof(float), 19200, fp);
+    fclose(fp);
+    #endif
     return 0;
 }

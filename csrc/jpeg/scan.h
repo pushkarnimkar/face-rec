@@ -11,6 +11,7 @@ typedef struct ScanOutput {
     ImcuPtr* imcus;
     #endif
     ParseStatus scan_status;
+    float image[19200];
 } ScanOutput;
 
 ParseStatus 

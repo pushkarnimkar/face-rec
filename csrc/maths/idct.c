@@ -38,7 +38,7 @@ const float w[] = {
 
 const float r2 = 7.07106781e-01; // 1 / sqrt(2)
 
-void idct2(const int16_t inp[64], uint8_t out[64]) {
+void idct2(const int16_t inp[64], float out[64]) {
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
             float val = 128;
@@ -54,7 +54,7 @@ void idct2(const int16_t inp[64], uint8_t out[64]) {
             }
             val = val > 255 ? 255 : val;
             val = val < 0 ? 0 : val;
-            out[8 * y + x] = (uint8_t) val;
+            out[8 * y + x] = val;
         }
     }
 }
