@@ -57,7 +57,7 @@ def decode_ac(reader: BitReader, scan_component: ScanComponent):
             k += rrrr
             zz[k] = _decode_zz(reader, ssss)
         elif ssss == 0 and rrrr == 15:
-            k = k + 16
+            k = k + 15
         elif ssss == 0 and rrrr == 0:
             break
         (rrrr, ssss), k = _decode_ac(reader, tbl), k + 1
