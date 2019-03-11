@@ -3,6 +3,7 @@ from recon.app.image_store import ImageStore
 from recon.core.solver import Solver
 from recon.core.transform import transform
 from typing import Tuple, Union, Iterator, Optional
+from zipfile import ZipFile
 
 import cv2
 import json
@@ -35,14 +36,19 @@ class FaceRecognizer:
         except TypeError:
             return None, None
 
-        with self.graph.as_default():
-            _conf, _pred = self.solver.recognize(enc)
+        value = dict(box=box.tolist(), sub=None, conf=0.0, image=image)
+        if self.solver.fitted:
+            with self.graph.as_default():
+                _conf, _pred = self.solver.recognize(enc)
+                value["sub"] = _pred[0]
+                value["conf"] = _conf[0]
 
-        conf, pred = _conf[0], _pred[0]
-        value = dict(box=box.tolist(), sub=pred, conf=conf, image=image)
-        if conf < self.confidence_thresh or force:
-            name = self.store.add(image, enc, box, vid, cap_time, pred,
-                                  conf, image_hash=image_hash)
+        if not self.solver.fitted or force or \
+                value["conf"] < self.confidence_thresh:
+            name = self.store.add(
+                image, enc, box, vid, cap_time, value["sub"],
+                value["conf"], image_hash=image_hash
+            )
             return name, value
         else:
             return None, value
@@ -125,9 +131,29 @@ class FaceRecognizer:
         recognizer.train()
         return recognizer
 
+    def bulk_feed(self, zipped: ZipFile):
+        noface, unrecognized, total, recognized = 0, 0, 0, 0
+        for file_info in zipped.filelist:
+            imei, timestamp = file_info.filename.split("/")
+            with zipped.open(file_info.filename, "r") as image:
+                buffer, total = image.read(), total + 1
+                name, value = self.feed(buffer, imei, timestamp)
+                if name is None and value is None:
+                    noface += 1
+                elif name is None and value is not None:
+                    recognized += 1
+                elif name is not None and value is not None:
+                    unrecognized += 1
+                else:
+                    ValueError("invalid condition")
+        status = f"processed {total} images: recognized {recognized} images," \
+                 f" failed to detect face in {noface} images, " \
+                 f"recognition failed on {unrecognized} images"
+        return dict(status=status)
+
     @property
     def subs_lst(self):
-        return list(self.store.info["subject"].unique())
+        return list(self.store.info["subject"].dropna().unique())
 
     @property
     def has_stored_model(self):

@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy", default="random",
                         help="policy for selection of images in block")
     # better go like 10 30 100 300 1000 3000 and so on
-    parser.add_argument("--block-size", default=300,
+    parser.add_argument("--block-size", default=300, type=int,
                         help="number of images per block")
     args = parser.parse_args()
     main(args.data_dir, args.include, args.exclude, args.policy, args.block_size)
