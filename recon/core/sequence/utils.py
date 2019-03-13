@@ -12,33 +12,47 @@ def make_mask(side, index) -> np.ndarray:
     return square
 
 
-def excl_from_dist_mat(dist_mat, index) -> np.ndarray:
-    assert dist_mat.shape[0] > 1, "too small matrix"
-    assert dist_mat.shape[0] == dist_mat.shape[1], "malformed distance matrix"
-
-    side = dist_mat.shape[0]
-    mask = make_mask(side, index)
-
-    removed = 1 if np.isscalar(index) else len(index)
-    return (dist_mat.flatten()[mask.flatten()]
-            .reshape(side - removed, side - removed))
+def _next_point(dist_mat: np.ndarray, available: np.ndarray,
+                unavailable: list, weight: float):
+    """Returns index of next point in available array"""
+    comp1 = dist_mat[np.ix_(available, available)].sum(1)
+    comp2 = dist_mat[np.ix_(available, unavailable)].sum(1)
+    return np.argmax(comp1 + weight * comp2)
 
 
-def dist_mat_order(encs: np.ndarray) -> np.ndarray:
+def dist_mat_order(encs: np.ndarray, weight: float=1.0) -> np.ndarray:
+    """
+    Orders encodings as per descending order of distance with respect to
+    other points in `encs`. Other points may or may not be already part
+    of the sequence.
+
+    Parameters
+    ----------
+    encs : np.ndarray, n x 128
+        Encodings to be sequenced. Contains n 128 dimensional face encodings
+    weight : float, optional (default 1.0)
+        Weight of second component of distances, that is the multiplication
+        factor for distances with included points
+
+    Returns
+    -------
+    order : np.ndarray, n x 1
+        Sequence in which to pick up values from encodings for efficient
+        active learning
+    """
     dist_mat = distance_matrix(encs, encs)
-    selection = list(np.unravel_index(dist_mat.argmax(), dist_mat.shape))
-
-    available, available_mat = (np.delete(np.arange(dist_mat.shape[0]), selection),
-                                excl_from_dist_mat(dist_mat, selection))
-    while available.shape[0] != 0:
-        next_point = np.argmax(dist_mat[available].sum(1))
-        selection.append(available[next_point])
-        if available.shape[0] == 1:
-            available = np.delete(available, next_point)
-        else:
-            available, available_mat = (np.delete(available, next_point),
-                                        excl_from_dist_mat(dist_mat, selection))
-    return np.array(selection)
+    available, unavailable = np.arange(dist_mat.shape[0]), []
+    order = list(np.unravel_index(dist_mat.argmax(), dist_mat.shape))
+    available = np.delete(available, order)
+    unavailable += order
+    while available.shape[0] > 1:
+        next_point = _next_point(dist_mat, available, unavailable, weight)
+        order.append(available[next_point])
+        unavailable.append(available[next_point])
+        available = np.delete(available, next_point)
+    else:
+        order.append(available[0])
+    return np.array(order)
 
 
 def make_cluster_estimator(method: str, **kwargs):

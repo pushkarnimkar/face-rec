@@ -4,7 +4,7 @@ import numpy as np
 
 
 class BaseSequencer:
-    name = "sequencer"
+    name = "base_sequencer"
 
     def sequence(self, encs: np.ndarray) -> np.ndarray:
         return np.arange(encs.shape[0])

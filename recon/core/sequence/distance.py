@@ -14,7 +14,7 @@ class DistanceMatrixSequencer(BaseSequencer):
         if encs.shape[0] < 8:
             return np.arange(encs.shape[0])
 
-        cluster_estimator = make_cluster_estimator(self.cluster_method)
+        cluster_estimator = make_cluster_estimator(self.cluster_method, min_samples=2)
         clusters, orders = cluster_estimator.fit_predict(encs), []
         for ci in np.unique(clusters):
             ci_index = np.where(clusters == ci)[0]
