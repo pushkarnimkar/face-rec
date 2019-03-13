@@ -65,7 +65,7 @@ def feed():
             with io.BytesIO() as temp_file:
                 request.files["image"].save(temp_file)
                 with ZipFile(temp_file) as zipped:
-                    status = recognizer.bulk_feed(zipped)
+                    status = recognizer.feed_zipped(zipped)
             return json.dumps(status)
 
         elif request.files["image"].content_type.startswith("image"):
@@ -109,9 +109,7 @@ def ask():
         name, (image, info) = tagged
 
     image_base64 = encode_image(image)
-    message = dict(name=name, image=image_base64, status="progress",
-                   pred=info["subject"], conf=float(info["confidence"]))
-
+    message = dict(name=name, image=image_base64, status="progress")
     return json.dumps(message)
 
 
@@ -129,6 +127,7 @@ def list_subs():
 @app.route("/retrain", methods=["GET"])
 def retrain():
     recognizer.train()
+    recognizer.post_train_feed()
     return redirect("/feed")
 
 

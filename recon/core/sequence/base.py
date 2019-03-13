@@ -3,14 +3,14 @@ from typing import Optional
 import numpy as np
 
 
-class Sequencer:
+class BaseSequencer:
     name = "sequencer"
 
     def sequence(self, encs: np.ndarray) -> np.ndarray:
         return np.arange(encs.shape[0])
 
 
-class RandomSequencer(Sequencer):
+class RandomSequencer(BaseSequencer):
     name = "random"
 
     def __init__(self, seed: Optional[int]=None):

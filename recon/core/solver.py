@@ -45,7 +45,7 @@ class Solver:
             return (pool["encodings"].reshape(-1, 1),
                     np.array([pool["subject"]]))
         elif self.is_local and isinstance(pool, np.ndarray):
-            return pool.reshape(1, -1), None
+            return pool.reshape(-1, 128), None
 
     def _build_solver(self, pool: POOLTYPE):
         encodings, subjects = self._transform(pool)

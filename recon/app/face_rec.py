@@ -1,4 +1,5 @@
-from recon.core.sequence import ConvexHullSequencer
+from recon.core.sequence import (
+    ConvexHullSequencer, DistanceMatrixSequencer, BaseSequencer)
 from recon.app.image_store import ImageStore
 from recon.core.solver import Solver
 from recon.core.transform import transform
@@ -22,7 +23,7 @@ class FaceRecognizer:
         self.store = ImageStore.read(store_dir)
         self.solver: Optional[Solver] = None
         self.confidence_thresh = min_confidence
-        self.iter_ask = self._ask()
+        self.iter_ask = self._ask(method="distance_matrix")
         self.graph: Optional[tf.Graph] = None
 
     def feed(self, buffer: bytes, vid: str, cap_time: int,
@@ -79,18 +80,20 @@ class FaceRecognizer:
             Iterator[Tuple[str, Tuple[np.ndarray, dict]]]:
 
         index = np.where(~self.store.info["verified"])[0]
-
-        if method == "input_order":
-            sequence = index
+        unverified_encs = self.store.encs[index, :]
+        if callable(method):
+            sequence = index[method(unverified_encs)]
+        elif method == "input_order":
+            sequencer = BaseSequencer()
+            sequence = index[sequencer.sequence(unverified_encs)]
+        elif method == "convex_hull":
+            sequencer = ConvexHullSequencer()
+            sequence = index[sequencer.sequence(unverified_encs)]
+        elif method == "distance_matrix":
+            sequencer = DistanceMatrixSequencer()
+            sequence = index[sequencer.sequence(unverified_encs)]
         else:
-            unverified_encs = self.store.encs[index, :]
-            if callable(method):
-                sequence = index[method(unverified_encs)]
-            elif method == "convex_hull":
-                sequencer = ConvexHullSequencer()
-                sequence = index[sequencer.sequence(unverified_encs)]
-            else:
-                raise ValueError("method not understood")
+            raise ValueError("method not understood")
 
         if sequence.shape[0] == 0:
             return
@@ -103,7 +106,7 @@ class FaceRecognizer:
         try:
             asked = next(self.iter_ask)
         except (TypeError, StopIteration):
-            self.iter_ask = self._ask()
+            self.iter_ask = self._ask(method="distance_matrix")
             asked = next(self.iter_ask)
         finally:
             return asked
@@ -131,25 +134,34 @@ class FaceRecognizer:
         recognizer.train()
         return recognizer
 
-    def bulk_feed(self, zipped: ZipFile):
+    def feed_zipped(self, zipped: ZipFile):
         noface, unrecognized, total, recognized = 0, 0, 0, 0
         for file_info in zipped.filelist:
             imei, timestamp = file_info.filename.split("/")
             with zipped.open(file_info.filename, "r") as image:
                 buffer, total = image.read(), total + 1
                 name, value = self.feed(buffer, imei, timestamp)
-                if name is None and value is None:
-                    noface += 1
-                elif name is None and value is not None:
-                    recognized += 1
-                elif name is not None and value is not None:
-                    unrecognized += 1
-                else:
-                    ValueError("invalid condition")
+            if name is None and value is None:
+                noface += 1
+            elif name is None and value is not None:
+                recognized += 1
+            elif name is not None and value is not None:
+                unrecognized += 1
+            else:
+                ValueError("invalid condition")
         status = f"processed {total} images: recognized {recognized} images," \
                  f" failed to detect face in {noface} images, " \
                  f"recognition failed on {unrecognized} images"
         return dict(status=status)
+
+    def post_train_feed(self):
+        verified, unverified = (
+            self.store[self.store.info["verified"].values],
+            self.store[~self.store.info["verified"].values])
+        confidence, prediction = self.solver.recognize(unverified.encs)
+        self.store = \
+            verified + unverified[confidence < self.confidence_thresh]
+        self.iter_ask = self._ask(method="distance_matrix")
 
     @property
     def subs_lst(self):

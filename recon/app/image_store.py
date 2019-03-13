@@ -65,7 +65,8 @@ class ImageStore:
             info = info.set_index("name")
 
             encs = np.load(os.path.join(store_dir, cls.ENCS_FILE_NAME))
-            bbox = np.load(os.path.join(store_dir, cls.BBOX_FILE_NAME))
+            bbox = np.load(os.path.join(store_dir, cls.BBOX_FILE_NAME)) \
+                .astype(np.int64)
             return ImageStore(store_dir, info, encs, bbox)
         else:
             return ImageStore(store_dir)
@@ -110,6 +111,24 @@ class ImageStore:
         info = self.info.iloc[item]
         encs, bbox = self.encs[item, :], self.bbox[item, :]
         return ImageStore(self.store_dir, info, encs, bbox)
+
+    def __add__(self, other: "ImageStore") -> "ImageStore":
+        _self, _other = self.info.copy(), other.info.copy()
+        _self["src"], _other["src"] = 0, 1
+        _self["idx"], _other["idx"] = (
+            np.arange(self.encs.shape[0]), np.arange(other.encs.shape[0]))
+
+        _info = pd.concat([_self, _other]).drop_duplicates()
+        _encs = np.ndarray((_info.shape[0], 128))
+        _bbox = np.ndarray((_info.shape[0], 4))
+
+        self_mask, other_mask = _info["src"] == 0, _info["src"] == 1
+        _encs[self_mask] = self.encs[_info[self_mask]["idx"], :]
+        _encs[other_mask] = other.encs[_info[other_mask]["idx"], :]
+        _bbox[self_mask] = self.bbox[_info[self_mask]["idx"], :]
+        _bbox[other_mask] = other.bbox[_info[other_mask]["idx"], :]
+        _info = _info.drop(["src", "idx"], axis=1)
+        return ImageStore(self.store_dir, _info, _encs, _bbox)
 
     def _absent_images(self):
         for image in os.listdir(self.img_dir):
