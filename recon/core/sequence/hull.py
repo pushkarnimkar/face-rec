@@ -1,4 +1,4 @@
-from .base import Sequencer
+from .base import BaseSequencer
 from scipy.spatial import ConvexHull
 from scipy.spatial.qhull import QhullError
 from typing import Optional
@@ -44,7 +44,7 @@ def select_hull(clusters, transformed) -> np.ndarray:
     return indices[weights.argsort()]
 
 
-class ConvexHullSequencer(Sequencer):
+class ConvexHullSequencer(BaseSequencer):
     name = "convex_hull"
 
     def __init__(self, cluster_method: Optional[str]="dbscan",
@@ -70,7 +70,7 @@ class ConvexHullSequencer(Sequencer):
         return np.concatenate((selected, np.array(list(extras))))
 
 
-class IterativeHullSequencer(Sequencer):
+class IterativeHullSequencer(BaseSequencer):
     name = "iterative_hull"
 
     def __init__(self, minimum_sequence: Optional[int]=8):

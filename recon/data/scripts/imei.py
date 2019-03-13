@@ -70,6 +70,7 @@ async def load_imei_logs(live_dir: str, imeis: Optional[List[str]]=None,
     if imeis is None:
         imeis = []
 
+    var_dir = os.path.join(live_dir, "var")
     _queries, vehicles = make_query_frame(live_dir)
     if len(imeis) != 0:
         _queries = _queries.loc[imeis]
@@ -80,10 +81,10 @@ async def load_imei_logs(live_dir: str, imeis: Optional[List[str]]=None,
         times = _queries.index.get_level_values(1)
         _queries = _queries[times < end]
 
-    imei_mapper = await IMEIMapper.create(live_dir)
+    imei_mapper = await IMEIMapper.create(var_dir)
     _queries = await imei_mapper.get_idevice(_queries)
 
-    vehicle_mapper = await VehicleMapper.create(live_dir)
+    vehicle_mapper = await VehicleMapper.create(var_dir)
     _queries = await vehicle_mapper.get_vehicle(_queries)
 
     if vehicles is not None:
@@ -92,9 +93,9 @@ async def load_imei_logs(live_dir: str, imeis: Optional[List[str]]=None,
         queries = _queries
 
     queries.sort_values("epoch", inplace=True)
-    queries.to_csv(os.path.join(live_dir, "vehicles.csv"))
+    queries.to_csv(os.path.join(var_dir, "vehicles.csv"))
 
-    speed_mapper = await SpeedMapper.create(live_dir)
+    speed_mapper = await SpeedMapper.create(var_dir)
     __queries, _ = await speed_mapper.get_speed(queries)
     print(__queries.head())
 

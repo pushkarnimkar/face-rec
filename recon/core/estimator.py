@@ -101,7 +101,8 @@ class ZscoreConfidenceModel(ConfidenceModel):
     def evaluate(self, predictions: np.ndarray):
         _subjects, _valid = np.argmax(predictions, axis=1), \
                             self.count >= self.min_count
-        prob, valid = predictions[:, _subjects].flatten(), _valid[_subjects]
+        prob = predictions[np.eye(self.mean.shape[0], dtype=bool)[_subjects]]
+        valid = _valid[_subjects]
         _confidence = (prob - self.mean[_subjects]) / self.std[_subjects]
         _confidence = np.clip(np.exp(_confidence), 0, 1)
         _confidence[~valid] = 0

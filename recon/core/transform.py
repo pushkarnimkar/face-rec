@@ -91,3 +91,5 @@ def transform(image_input: Union[str, bytes],
         return image, face_encoding, face_box, image_hash
     except TypeError:
         return None
+    except cv2.error:
+        return None

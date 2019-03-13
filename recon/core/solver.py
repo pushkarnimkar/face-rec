@@ -15,9 +15,6 @@ class Solver:
                  confidence_method: Optional[str]="zscore",
                  predictor_method: Optional[str]="neural"):
 
-        assert not (pool is None and stored is None), \
-            "both of pool and model_json can not be NoneType"
-
         self.predictor_method = predictor_method
         self.confidence_method = confidence_method
 
@@ -25,10 +22,12 @@ class Solver:
         self.confidence_model: Optional[ConfidenceModel] = None
         self.mapping: Optional[np.ndarray] = None
         self.is_local: bool = local
+        self.fitted = False
 
-        if pool is not None:
+        if pool is None and stored is None:
+            pass
+        elif pool is not None:
             self._build_solver(pool)
-
         elif stored is not None:
             self._load_solver(stored)
 
@@ -46,7 +45,7 @@ class Solver:
             return (pool["encodings"].reshape(-1, 1),
                     np.array([pool["subject"]]))
         elif self.is_local and isinstance(pool, np.ndarray):
-            return pool.reshape(1, -1), None
+            return pool.reshape(-1, 128), None
 
     def _build_solver(self, pool: POOLTYPE):
         encodings, subjects = self._transform(pool)
@@ -58,14 +57,19 @@ class Solver:
 
         x_train, x_test, y_train, y_test = \
             self.confidence_model.split(encodings, labels)
-        self.predictor_model.fit(x_train, y_train)
-        self.confidence_model.fit(self.predictor_model, x_test, y_test)
+        try:
+            self.predictor_model.fit(x_train, y_train)
+            self.confidence_model.fit(self.predictor_model, x_test, y_test)
+            self.fitted = True
+        except ValueError:
+            self.fitted = False
 
     def _load_solver(self, model_json: dict):
         _deserialized = simplifier.deserialize(model_json)
         self.predictor_model = _deserialized["predictor_model"]
         self.confidence_model = _deserialized["confidence_model"]
         self.mapping = np.array(_deserialized["mapping"])
+        self.fitted = True
 
     def recognize(self, pool: POOLTYPE) -> Tuple[np.ndarray, np.ndarray]:
         encodings, _ = self._transform(pool)
@@ -76,6 +80,8 @@ class Solver:
         return confidence, prediction
 
     def export_model(self):
+        if not self.fitted:
+            return None
         _export = dict(predictor_model=self.predictor_model,
                        confidence_model=self.confidence_model,
                        mapping=self.mapping.tolist())

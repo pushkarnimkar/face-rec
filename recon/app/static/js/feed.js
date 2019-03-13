@@ -18,7 +18,7 @@ $(function() {
     $("#upload").click(function() {
         console.log("clicked upload");
         $("#image").click();
-        $("#status").text("Preview Uploaded Image");
+        $("#status").text("Uploading File ...");
     })
 
     $("#image").on("change", function(event) {
@@ -26,8 +26,13 @@ $(function() {
 
         var reader = new FileReader();
         reader.onload = function(e) {
-            console.log(e);
-            $("#tagged").attr("src", e.target.result);
+            if (files["image"].name.endsWith(".zip")) {
+                $("#status").text("Uploaded Zip Archive");
+            } else {
+                $("#status").text("Uploaded Image File");
+                console.log(e);
+                $("#tagged").attr("src", e.target.result);
+            }
         }
         reader.readAsDataURL(files["image"]);
     });

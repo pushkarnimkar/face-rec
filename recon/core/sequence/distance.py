@@ -1,10 +1,10 @@
-from .base import Sequencer
+from .base import BaseSequencer
 from .utils import dist_mat_order, make_cluster_estimator
 
 import numpy as np
 
 
-class DistanceMatrixSequencer(Sequencer):
+class DistanceMatrixSequencer(BaseSequencer):
     name = "distance_matrix_order"
 
     def __init__(self, cluster_method: str= "dbscan"):

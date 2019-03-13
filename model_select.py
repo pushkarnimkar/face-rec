@@ -12,7 +12,7 @@ import os
 import pandas as pd
 
 from recon.core.sequence import (
-    Sequencer, ConvexHullSequencer, RandomSequencer,
+    BaseSequencer, ConvexHullSequencer, RandomSequencer,
     IterativeHullSequencer, DistanceMatrixSequencer
 )
 from helpers import train_test_split
@@ -81,7 +81,7 @@ def auc_alc(values: np.ndarray, intv: float):
     return intv * (0.5 * (values[0] + values[-1]) + values[1:-1].sum())
 
 
-def find_scores(store_dir: str, methods: List[Sequencer],
+def find_scores(store_dir: str, methods: List[BaseSequencer],
                 weights_tmp_file: str= "/tmp/weights.hdf5",
                 train_fract: float=0.6, progress=True) -> dict:
 
@@ -107,7 +107,7 @@ if __name__ == "__main__":
     parser.add_argument("store_dir")
 
     args = parser.parse_args()
-    _methods: List[Sequencer] = [
+    _methods: List[BaseSequencer] = [
         DistanceMatrixSequencer, IterativeHullSequencer,
         RandomSequencer, ConvexHullSequencer
     ]

@@ -1,6 +1,7 @@
 from flask import Flask, request, render_template, redirect
 from recon.app.device import USBCamera
 from recon.app.face_rec import FaceRecognizer
+from zipfile import ZipFile
 
 import base64
 import cv2
@@ -18,8 +19,9 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 def exit_routine(_, __):
     model = recognizer.solver.export_model()
-    with open(recognizer.stored_model_path, "w") as model_file:
-        json.dump(model, model_file)
+    if model is not None:
+        with open(recognizer.stored_model_path, "w") as model_file:
+            json.dump(model, model_file)
     recognizer.store.write()
     global camera
     camera.close()
@@ -59,24 +61,35 @@ def encode_image(img, box=None, cvt_color=False):
 @app.route("/feed", methods=["GET", "POST"])
 def feed():
     if request.method == "POST":
-        temp_file = io.BytesIO()
-        request.files["image"].save(temp_file)
-        buffer = temp_file.getvalue()
-        name, pred = recognizer.feed(buffer, "intangles", int(time.time()))
+        if request.files["image"].content_type == "application/zip":
+            with io.BytesIO() as temp_file:
+                request.files["image"].save(temp_file)
+                with ZipFile(temp_file) as zipped:
+                    status = recognizer.feed_zipped(zipped)
+            return json.dumps(status)
 
-        if name is None and pred is None:
-            return json.dumps(dict(status="could not detect face"))
+        elif request.files["image"].content_type.startswith("image"):
+            with io.BytesIO() as temp_file:
+                request.files["image"].save(temp_file)
+                buffer = temp_file.getvalue()
+            name, pred = recognizer.feed(buffer, "intangles", int(time.time()))
 
-        if isinstance(pred, dict):
-            image_base64 = encode_image(pred["image"], pred["box"],
-                                        cvt_color=True)
-            pred["conf"] = round(float(pred["conf"]), 6)
-            pred["status"] = f"predicted subject {pred['sub']} " \
-                             f"with confidence {pred['conf']}"
-            pred["image"] = image_base64
-            return json.dumps(pred)
+            if name is None and pred is None:
+                return json.dumps(dict(status="could not detect face"))
+
+            if isinstance(pred, dict):
+                image_base64 = encode_image(pred["image"], pred["box"],
+                                            cvt_color=True)
+                pred["conf"] = round(float(pred["conf"]), 6)
+                pred["status"] = f"predicted subject {pred['sub']} " \
+                                 f"with confidence {pred['conf']}"
+                pred["image"] = image_base64
+                return json.dumps(pred)
+            else:
+                return json.dumps(dict(status="unexpected error"))
+
         else:
-            return json.dumps(dict(status="unexpected error"))
+            return json.dumps(dict(status="unexpected content type"))
 
     return render_template("feed.html")
 
@@ -96,9 +109,7 @@ def ask():
         name, (image, info) = tagged
 
     image_base64 = encode_image(image)
-    message = dict(name=name, image=image_base64, status="progress",
-                   pred=info["subject"], conf=float(info["confidence"]))
-
+    message = dict(name=name, image=image_base64, status="progress")
     return json.dumps(message)
 
 
@@ -116,6 +127,7 @@ def list_subs():
 @app.route("/retrain", methods=["GET"])
 def retrain():
     recognizer.train()
+    recognizer.post_train_feed()
     return redirect("/feed")
 
 
@@ -143,6 +155,11 @@ def hello_world():
 @app.route("/feed-again")
 def feed_again():
     recognizer.feed_again()
+
+
+@app.route("/bulk-feed")
+def bulk_feed():
+    pass
 
 
 if __name__ == "__main__":
