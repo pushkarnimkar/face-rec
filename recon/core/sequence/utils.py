@@ -45,6 +45,8 @@ def dist_mat_order(encs: np.ndarray, weight: float=1.0) -> np.ndarray:
     order = list(np.unravel_index(dist_mat.argmax(), dist_mat.shape))
     available = np.delete(available, order)
     unavailable += order
+    if available.shape[0] == 0:
+        return np.array(order)
     while available.shape[0] > 1:
         next_point = _next_point(dist_mat, available, unavailable, weight)
         order.append(available[next_point])
