@@ -120,7 +120,7 @@ class ImageStore:
 
         _info = pd.concat([_self, _other]).drop_duplicates()
         _encs = np.ndarray((_info.shape[0], 128))
-        _bbox = np.ndarray((_info.shape[0], 4))
+        _bbox = np.ndarray((_info.shape[0], 4), dtype=np.int64)
 
         self_mask, other_mask = _info["src"] == 0, _info["src"] == 1
         _encs[self_mask] = self.encs[_info[self_mask]["idx"], :]

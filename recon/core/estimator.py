@@ -5,6 +5,8 @@ from keras.optimizers import SGD
 from keras.utils import to_categorical
 from typing import Callable, Optional
 
+from recon.core.splitters import simple_split, dmotli_split
+
 import numpy as np
 
 
@@ -20,12 +22,13 @@ class PredictorModel(ABC):
 
 class ConfidenceModel(ABC):
     @classmethod
-    def split(cls, x: np.ndarray, y: np.ndarray, train_fract: float = 0.6):
-        take_train = int(x.shape[0] * train_fract)
-        prerm = np.random.permutation(x.shape[0])
-        x_train, x_test = x[prerm[:take_train], :], x[prerm[take_train:], :]
-        y_train, y_test = y[prerm[:take_train]], y[prerm[take_train:]]
-        return x_train, x_test, y_train, y_test
+    def split(cls, x: np.ndarray, y: np.ndarray, policy: str="simple",
+              train_split: float=0.6, **kwargs):
+        if policy == "simple":
+            return simple_split(x, y, train_split)
+        elif policy == "dmotli":
+            return dmotli_split(x, y, train_split)
+        raise ValueError("unknown split policy")
 
     @abstractmethod
     def fit(self, predictor: PredictorModel, x: np.ndarray, y: np.ndarray):

@@ -56,7 +56,7 @@ class Solver:
         self.confidence_model = load_confidence_model(self.confidence_method)
 
         x_train, x_test, y_train, y_test = \
-            self.confidence_model.split(encodings, labels)
+            self.confidence_model.split(encodings, labels, policy="dmotli")
         try:
             self.predictor_model.fit(x_train, y_train)
             self.confidence_model.fit(self.predictor_model, x_test, y_test)
