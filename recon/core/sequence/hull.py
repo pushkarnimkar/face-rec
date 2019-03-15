@@ -45,7 +45,7 @@ def select_hull(clusters, transformed) -> np.ndarray:
 
 
 class ConvexHullSequencer(BaseSequencer):
-    name = "convex_hull"
+    _name_ = "ConvexHullSequencer"
 
     def __init__(self, cluster_method: Optional[str]="dbscan",
                  transform_method: Optional[str]="tsne",
@@ -71,7 +71,7 @@ class ConvexHullSequencer(BaseSequencer):
 
 
 class IterativeHullSequencer(BaseSequencer):
-    name = "iterative_hull"
+    _name_ = "IterativeHullSequencer"
 
     def __init__(self, minimum_sequence: Optional[int]=8):
         self.minimum_sequence = minimum_sequence
